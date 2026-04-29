@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xmum-moodle-agent"
+version = "0.1.0"
+description = "Download XMUM Moodle materials and maintain a bilingual DOCX knowledge checklist."
+requires-python = ">=3.9"
+dependencies = [
+  "playwright>=1.40",
+  "python-dotenv>=1.0",
+  "pypdf>=4.0",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+xmum-moodle-agent = "xmum_moodle_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
