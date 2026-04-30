@@ -19,6 +19,8 @@ class AgentConfig:
     index_path: Path
     docx_path: Path
     headless: bool
+    course_include_regex: Optional[str]
+    course_exclude_regex: Optional[str]
 
 
 def _read_env_file(env_file: Path) -> Dict[str, str]:
@@ -31,12 +33,25 @@ def _read_env_file(env_file: Path) -> Dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip('"').strip("'")
+        values[key.strip().lstrip("\ufeff")] = value.strip().strip('"').strip("'")
     return values
 
 
 def _get_value(key: str, env_values: Dict[str, str]) -> Optional[str]:
     return os.environ.get(key) or env_values.get(key)
+
+
+def _get_optional_value(key: str, env_values: Dict[str, str], default: Optional[str] = None) -> Optional[str]:
+    if key in os.environ:
+        value = os.environ[key]
+    elif key in env_values:
+        value = env_values[key]
+    else:
+        value = default
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
 
 
 def _as_bool(value: Optional[str], default: bool = True) -> bool:
@@ -74,7 +89,7 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
 
     moodle_courses_url = (
         _get_value("XMUM_MOODLE_COURSES_URL", env_values)
-        or "https://l.xmu.edu.my/my/courses.php"
+        or "https://l.xmu.edu.my/my/"
     )
 
     return AgentConfig(
@@ -87,4 +102,10 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
         index_path=data_dir / "index.json",
         docx_path=data_dir / "XMUM_Knowledge_Checklist.docx",
         headless=_as_bool(_get_value("XMUM_AGENT_HEADLESS", env_values), default=True),
+        course_include_regex=_get_optional_value(
+            "XMUM_COURSE_INCLUDE_REGEX",
+            env_values,
+            default="2026/04",
+        ),
+        course_exclude_regex=_get_optional_value("XMUM_COURSE_EXCLUDE_REGEX", env_values),
     )

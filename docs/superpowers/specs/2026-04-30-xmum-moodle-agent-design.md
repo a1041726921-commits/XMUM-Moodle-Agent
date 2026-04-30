@@ -6,10 +6,12 @@ Build a local Python agent that logs in to XMUM Moodle with Campus ID credential
 
 ## Authentication
 
-The agent uses Playwright to open `https://l.xmu.edu.my/my/courses.php`, fills the Moodle login form, and reads credentials only from environment variables or a local `.env` file:
+The agent uses Playwright to open `https://l.xmu.edu.my/my/`, fills the Moodle login form, and reads credentials only from environment variables or a local `.env` file:
 
 - `XMUM_MOODLE_USERNAME`
 - `XMUM_MOODLE_PASSWORD`
+- `XMUM_COURSE_INCLUDE_REGEX` defaults to `2026/04` so only current-semester courses are processed.
+- `XMUM_COURSE_EXCLUDE_REGEX` optionally removes matching courses after the include filter.
 
 Credentials are not written to logs, indexes, filenames, or generated documents.
 
@@ -21,13 +23,14 @@ Downloaded course files live under `data/courses/<course-name>/`. The agent main
 
 1. Load configuration and credentials.
 2. Log in to Moodle and open the user's course dashboard.
-3. Discover course links from `my/courses.php`.
-4. Visit each course and collect downloadable resources such as PDF, PPTX, DOCX, PPT, and ZIP files.
-5. Download only new or changed resources.
-6. Parse supported files locally.
-7. Generate professor-style bilingual notes from the extracted text.
-8. Rebuild the Word knowledge checklist from indexed parsed content.
-9. Optionally register a Windows Task Scheduler job for daily 08:00 execution.
+3. Discover course links from `my/`.
+4. Filter discovered courses by the configured include/exclude regular expressions.
+5. Visit each course and collect downloadable resources such as PDF, PPTX, DOCX, PPT, and ZIP files.
+6. Download only new or changed resources.
+7. Parse supported files locally.
+8. Generate professor-style bilingual notes from the extracted text.
+9. Rebuild the Word knowledge checklist from indexed parsed content.
+10. Optionally register a Windows Task Scheduler job for daily 08:00 execution.
 
 ## Knowledge Checklist Shape
 

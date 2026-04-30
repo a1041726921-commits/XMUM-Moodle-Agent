@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from .config import AgentConfig
+from .course_filter import filter_courses
 from .docx_writer import write_knowledge_docx
 from .downloader import save_resource_bytes
 from .files import content_sha256
@@ -19,7 +20,11 @@ async def run_agent(config: AgentConfig) -> Dict[str, int]:
 
     async with MoodleClient(config) as moodle:
         await moodle.login()
-        courses = await moodle.discover_courses()
+        courses = filter_courses(
+            await moodle.discover_courses(),
+            include_regex=config.course_include_regex,
+            exclude_regex=config.course_exclude_regex,
+        )
         stats["courses"] = len(courses)
         for course in courses:
             resources = await moodle.discover_resources(course)

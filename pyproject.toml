@@ -14,10 +14,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = []
+dev = [
+  "pyinstaller>=6.0",
+]
 
 [project.scripts]
 xmum-moodle-agent = "xmum_moodle_agent.cli:main"
+xmum-moodle-agent-gui = "xmum_moodle_agent.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

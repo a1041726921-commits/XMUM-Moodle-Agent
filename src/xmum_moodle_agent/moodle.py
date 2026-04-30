@@ -1,6 +1,7 @@
+import json
 import re
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 from urllib.parse import unquote, urlparse
 
 from .files import safe_filename
@@ -27,22 +28,26 @@ class MoodleAutomationError(RuntimeError):
 
 def discover_courses_from_links(links: Sequence[Link]) -> List[Course]:
     courses: List[Course] = []
-    seen = set()
+    seen = {}
     for title, href in links:
         if "/course/view.php" not in href or "id=" not in href:
             continue
-        clean_title = _clean_link_text(title) or "Untitled Course"
+        clean_title = _clean_course_title(title) or "Untitled Course"
         key = href.split("#", 1)[0]
-        if key in seen:
+        existing_index = seen.get(key)
+        if existing_index is not None:
+            existing = courses[existing_index]
+            if _is_better_course_title(clean_title, existing.title):
+                courses[existing_index] = Course(title=clean_title, url=existing.url)
             continue
-        seen.add(key)
+        seen[key] = len(courses)
         courses.append(Course(title=clean_title, url=key))
     return courses
 
 
 def discover_resources_from_links(course_title: str, links: Sequence[Link]) -> List[Resource]:
     resources: List[Resource] = []
-    seen = set()
+    seen = {}
     for title, href in links:
         extension = _extension_from_url(href)
         is_resource_page = "/mod/resource/view.php" in href or "/mod/folder/view.php" in href
@@ -50,12 +55,22 @@ def discover_resources_from_links(course_title: str, links: Sequence[Link]) -> L
         if not is_resource_page and not is_direct_file:
             continue
         key = href.split("#", 1)[0]
-        if key in seen:
+        clean_title = _clean_resource_title(title) or _title_from_url(href)
+        existing_index = seen.get(key)
+        if existing_index is not None:
+            existing = resources[existing_index]
+            if _is_better_title(clean_title, existing.title):
+                resources[existing_index] = Resource(
+                    title=clean_title,
+                    url=existing.url,
+                    course_title=existing.course_title,
+                    extension=existing.extension or extension,
+                )
             continue
-        seen.add(key)
+        seen[key] = len(resources)
         resources.append(
             Resource(
-                title=_clean_link_text(title) or _title_from_url(href),
+                title=clean_title,
                 url=key,
                 course_title=course_title,
                 extension=extension,
@@ -68,6 +83,40 @@ def _clean_link_text(value: str) -> str:
     value = re.sub(r"\s+", " ", value or "").strip()
     value = re.sub(r"^(file|resource)\s*", "", value, flags=re.IGNORECASE).strip()
     return value
+
+
+def _clean_course_title(value: str) -> str:
+    value = _clean_link_text(value)
+    action_match = re.search(r"Actions for course\s+(.+)", value, flags=re.IGNORECASE | re.DOTALL)
+    if action_match:
+        value = action_match.group(1)
+    value = re.sub(r"^Course name\s*", "", value, flags=re.IGNORECASE).strip()
+    value = re.sub(r"^Course image\s*", "", value, flags=re.IGNORECASE).strip()
+    value = re.sub(r"\s*\d+%\s*(已完成|completed).*$", "", value, flags=re.IGNORECASE | re.DOTALL).strip()
+    return value
+
+
+def _is_better_course_title(candidate: str, current: str) -> bool:
+    poor_titles = {"", "course image", "course name", "untitled course"}
+    current_lower = current.strip().lower()
+    if current_lower in poor_titles or "course image" in current_lower:
+        return candidate.strip().lower() not in poor_titles
+    if "..." in current and "..." not in candidate:
+        return True
+    return len(candidate) > len(current) and current.lower() in candidate.lower()
+
+
+def _clean_resource_title(value: str) -> str:
+    value = _clean_link_text(value)
+    value = re.sub(r"\s*(文件|File)\s*$", "", value, flags=re.IGNORECASE).strip()
+    return value
+
+
+def _is_better_title(candidate: str, current: str) -> bool:
+    poor_titles = {"", "view.php", "resource", "file", "moodle resource"}
+    if current.strip().lower() in poor_titles:
+        return candidate.strip().lower() not in poor_titles
+    return len(candidate) > len(current) and current.lower() in candidate.lower()
 
 
 def _extension_from_url(url: str) -> str:
@@ -86,12 +135,53 @@ def _title_from_url(url: str) -> str:
 async def _extract_links(page) -> List[Link]:
     links = await page.eval_on_selector_all(
         "a[href]",
-        """anchors => anchors.map(a => [
-            (a.innerText || a.getAttribute('aria-label') || a.title || '').trim(),
-            a.href
-        ])""",
+        """anchors => anchors.map(a => {
+            let text = (a.getAttribute('title') || a.innerText || a.getAttribute('aria-label') || '').trim();
+            if (a.href.includes('/course/view.php')) {
+                const card = a.closest('[data-region="course-content"], .dashboard-card, .card');
+                const action = card && card.querySelector('[aria-label^="Actions for course"], [title^="Actions for course"]');
+                const actionLabel = action && (action.getAttribute('aria-label') || action.getAttribute('title'));
+                if (actionLabel) {
+                    text = actionLabel.replace(/^Actions for course\\s*/i, '').trim();
+                } else if (card) {
+                    const cardText = (card.innerText || card.textContent || '').trim();
+                    const match = cardText.match(/Actions for course\\s+([^\\n]+)/i);
+                    if (match) {
+                        text = match[1].trim();
+                    }
+                }
+            }
+            return [text, a.href];
+        })""",
     )
     return [(str(title), str(href)) for title, href in links if href]
+
+
+async def _wait_for_page_ready(page) -> None:
+    try:
+        await page.wait_for_load_state("networkidle", timeout=10000)
+    except Exception:
+        pass
+
+
+def _classify_links(links: Sequence[Link]) -> Dict[str, int]:
+    counts = {
+        "total": len(links),
+        "course_view": 0,
+        "my_courses": 0,
+        "mod_resource": 0,
+        "pluginfile": 0,
+    }
+    for _, href in links:
+        if "/course/view.php" in href:
+            counts["course_view"] += 1
+        if "/my/courses.php" in href:
+            counts["my_courses"] += 1
+        if "/mod/resource/view.php" in href:
+            counts["mod_resource"] += 1
+        if "pluginfile.php" in href:
+            counts["pluginfile"] += 1
+    return counts
 
 
 class MoodleClient:
@@ -144,11 +234,50 @@ class MoodleClient:
         return any("/course/view.php" in href for _, href in links) or "my/courses.php" in current
 
     async def discover_courses(self) -> List[Course]:
+        links: List[Link] = []
+        for url in _course_overview_urls(self.config.moodle_courses_url):
+            await self.page.goto(url, wait_until="domcontentloaded")
+            await _wait_for_page_ready(self.page)
+            links.extend(await _extract_links(self.page))
+        return discover_courses_from_links(links)
+
+    async def debug_page(self, output_dir: Path) -> Dict[str, object]:
+        output_dir.mkdir(parents=True, exist_ok=True)
         await self.page.goto(self.config.moodle_courses_url, wait_until="domcontentloaded")
-        return discover_courses_from_links(await _extract_links(self.page))
+        try:
+            await self.page.wait_for_load_state("networkidle", timeout=10000)
+        except Exception:
+            pass
+        links = await _extract_links(self.page)
+        title = await self.page.title()
+        url = self.page.url
+        html = await self.page.content()
+        screenshot_path = output_dir / "moodle-courses-page.png"
+        html_path = output_dir / "moodle-courses-page.html"
+        links_path = output_dir / "moodle-links.json"
+        await self.page.screenshot(path=str(screenshot_path), full_page=True)
+        html_path.write_text(html, encoding="utf-8")
+        links_path.write_text(
+            json.dumps(
+                [{"text": title, "href": href} for title, href in links],
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "url": url,
+            "title": title,
+            "counts": _classify_links(links),
+            "course_count": len(discover_courses_from_links(links)),
+            "screenshot": str(screenshot_path),
+            "html": str(html_path),
+            "links": str(links_path),
+        }
 
     async def discover_resources(self, course: Course) -> List[Resource]:
         await self.page.goto(course.url, wait_until="domcontentloaded")
+        await _wait_for_page_ready(self.page)
         return discover_resources_from_links(course.title, await _extract_links(self.page))
 
     async def download_resource_bytes(self, resource: Resource) -> Tuple[bytes, str]:
@@ -158,3 +287,13 @@ class MoodleClient:
         content = await response.body()
         final_url = response.url
         return content, final_url
+
+
+def _course_overview_urls(configured_url: str) -> List[str]:
+    urls = [configured_url]
+    parsed = urlparse(configured_url)
+    if parsed.netloc == "l.xmu.edu.my":
+        canonical = "https://l.xmu.edu.my/my/courses.php"
+        if canonical not in urls:
+            urls.append(canonical)
+    return urls
