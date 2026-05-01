@@ -17,23 +17,23 @@ Edit `.env`:
 ```env
 XMUM_MOODLE_USERNAME=your-campus-id
 XMUM_MOODLE_PASSWORD=your-password
-XMUM_COURSE_INCLUDE_REGEX=2026/04
+XMUM_COURSE_INCLUDE_REGEX=
 XMUM_COURSE_EXCLUDE_REGEX=
 ```
 
-Course filtering uses regular expressions against the full Moodle course title.
+Course discovery opens `https://l.xmu.edu.my/my/courses.php`, switches the Moodle
+view to `All (including removed from view)` when possible, and expands hidden
+course cards. Course filtering is optional and uses regular expressions against
+the full Moodle course title.
 
 Examples:
 
 ```env
-# Current semester only.
-XMUM_COURSE_INCLUDE_REGEX=2026/04
+# Download every discovered course, including completed and expired courses.
+XMUM_COURSE_INCLUDE_REGEX=
 
 # Only CYS/CST courses in the current semester.
 XMUM_COURSE_INCLUDE_REGEX=^(CYS|CST).+2026/04
-
-# Download every visible course.
-XMUM_COURSE_INCLUDE_REGEX=
 
 # Exclude general education courses.
 XMUM_COURSE_EXCLUDE_REGEX=^G
@@ -67,29 +67,50 @@ Launch the desktop GUI:
 .\.venv\Scripts\python.exe -m xmum_moodle_agent.gui
 ```
 
-The GUI has a Moodle login screen and a separate model API access window. If at
-least one enabled model provider has an API key, the note generation choice
-becomes selectable. The current GUI only saves the choice; automatic AI note
-generation is not wired yet.
+The GUI is built with PySide6/Qt and enables Windows high-DPI awareness at startup
+so the modern white interface stays sharp on scaled displays.
+
+The GUI opens on a startup page with a `Sign In to Moodle` button. Pressing it opens a
+login popup; course selection, downloads, and knowledge-note settings stay locked
+until the login succeeds.
+
+After login, the main window uses a left sidebar:
+
+- `Courses`: choose a semester such as `2026/04` or `2025/09`, then tick courses.
+  The semester selector is generated from visible Moodle course titles, defaults
+  to the latest term, and ticks all courses in that term after login. Use
+  `Download Selected` to download, or `Open Folder` to open the local courseware folder.
+- `Knowledge Notes`: choose an API source such as `OPENAI`, `GOOGLE`,
+  `ANTHROPIC`, `ALIBABA`, `XIAOMI`, or `DEEPSEEK`, enter the API key, and use
+  `Test API` to check the connection before generating notes. The app does not
+  expose model selection in the UI; each provider uses an internal default model
+  and writes `Course_Knowledge_Checklist.docx`.
+
+Existing indexed courseware is skipped, and an existing same-name local file is
+not overwritten. Downloaded courseware is grouped by semester under
+`data/courses/<term>/<course name>/`, for example `data/courses/2025-09/...`.
 
 Build a Windows executable:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --windowed --name XMUM-Moodle-Agent --paths src src\xmum_moodle_agent\gui.py
+.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --windowed --onefile --name XMUM-Moodle-Agent-Standalone --paths src --add-data "src\xmum_moodle_agent\assets;xmum_moodle_agent\assets" --icon src\xmum_moodle_agent\assets\xmum.ico src\xmum_moodle_agent\gui.py
 ```
 
 The generated executable is:
 
 ```text
-dist\XMUM-Moodle-Agent\XMUM-Moodle-Agent.exe
+dist\XMUM-Moodle-Agent-Standalone.exe
 ```
+
+Do not run executables from `build\`; that folder only contains PyInstaller
+intermediate files and can miss bundled DLLs.
 
 ## Output
 
 - Course files: `data/courses/<course name>/`
 - Download index: `data/index.json`
-- Knowledge checklist: `data/XMUM_Knowledge_Checklist.docx`
+- Knowledge checklist: `data/Course_Knowledge_Checklist.docx`
 
 ## Security Notes
 

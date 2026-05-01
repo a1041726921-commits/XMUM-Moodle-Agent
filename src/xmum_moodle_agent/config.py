@@ -100,12 +100,12 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
         data_dir=data_dir,
         courses_dir=data_dir / "courses",
         index_path=data_dir / "index.json",
-        docx_path=data_dir / "XMUM_Knowledge_Checklist.docx",
+        docx_path=data_dir / "Course_Knowledge_Checklist.docx",
         headless=_as_bool(_get_value("XMUM_AGENT_HEADLESS", env_values), default=True),
         course_include_regex=_get_optional_value(
             "XMUM_COURSE_INCLUDE_REGEX",
             env_values,
-            default="2026/04",
+            default=None,
         ),
         course_exclude_regex=_get_optional_value("XMUM_COURSE_EXCLUDE_REGEX", env_values),
     )

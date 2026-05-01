@@ -72,6 +72,23 @@ class IndexAndFilesTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(second_content, b"second")
 
+    def test_save_resource_bytes_groups_course_under_semester_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            courses_dir = Path(tmp) / "courses"
+            resource = Resource(
+                title="Lecture 01",
+                url="https://l.xmu.edu.my/pluginfile.php/1/lecture01.pdf",
+                course_title="Machine Learning 2025/09 Lecturer",
+                extension=".pdf",
+            )
+
+            path = save_resource_bytes(courses_dir, resource, b"content")
+
+        self.assertEqual(
+            path,
+            courses_dir / "2025-09" / "Machine Learning 2025 - 09 Lecturer" / "Lecture 01.pdf",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

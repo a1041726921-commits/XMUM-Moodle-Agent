@@ -27,8 +27,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.data_dir, root / "data")
         self.assertEqual(config.courses_dir, root / "data" / "courses")
         self.assertEqual(config.index_path, root / "data" / "index.json")
-        self.assertEqual(config.docx_path, root / "data" / "XMUM_Knowledge_Checklist.docx")
-        self.assertEqual(config.course_include_regex, "2026/04")
+        self.assertEqual(config.docx_path, root / "data" / "Course_Knowledge_Checklist.docx")
+        self.assertIsNone(config.course_include_regex)
         self.assertIsNone(config.course_exclude_regex)
 
     def test_environment_overrides_env_file(self):

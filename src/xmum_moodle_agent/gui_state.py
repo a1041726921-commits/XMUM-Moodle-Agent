@@ -3,51 +3,64 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
 
-from .config import _read_env_file
+from .config import AgentConfig, _as_bool, _get_optional_value, _get_value, _read_env_file
 
 
 DEFAULT_MODEL_PROVIDERS = [
     {
         "id": "openai",
-        "name": "OpenAI",
+        "name": "OPENAI",
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-4o-mini",
         "api_key": "",
         "enabled": False,
     },
     {
-        "id": "deepseek",
-        "name": "DeepSeek",
-        "base_url": "https://api.deepseek.com/v1",
-        "model": "deepseek-chat",
+        "id": "google",
+        "name": "GOOGLE",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-3-flash-preview",
         "api_key": "",
         "enabled": False,
     },
     {
-        "id": "qwen",
-        "name": "Alibaba Qwen",
+        "id": "anthropic",
+        "name": "ANTHROPIC",
+        "base_url": "https://api.anthropic.com/v1",
+        "model": "claude-sonnet-4-5",
+        "api_key": "",
+        "enabled": False,
+    },
+    {
+        "id": "alibaba",
+        "name": "ALIBABA",
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "model": "qwen-plus",
         "api_key": "",
         "enabled": False,
     },
     {
-        "id": "gemini",
-        "name": "Google Gemini",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "model": "gemini-1.5-flash",
+        "id": "xiaomi",
+        "name": "XIAOMI",
+        "base_url": "https://api.xiaomimimo.com/v1",
+        "model": "mimo-v2.5-pro",
         "api_key": "",
         "enabled": False,
     },
     {
-        "id": "anthropic",
-        "name": "Anthropic Claude",
-        "base_url": "https://api.anthropic.com/v1",
-        "model": "claude-3-5-haiku-latest",
+        "id": "deepseek",
+        "name": "DEEPSEEK",
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
         "api_key": "",
         "enabled": False,
     },
 ]
+
+LEGACY_PROVIDER_IDS = {
+    "gemini": "google",
+    "qwen": "alibaba",
+}
 
 
 @dataclass
@@ -99,6 +112,31 @@ def can_generate_notes(settings: GuiSettings) -> bool:
     )
 
 
+def agent_config_from_gui_settings(root: Path, settings: GuiSettings) -> AgentConfig:
+    root = root.resolve()
+    env_values = _read_env_file(root / ".env")
+    data_dir_value = _get_value("XMUM_AGENT_DATA_DIR", env_values) or "data"
+    data_dir = Path(data_dir_value)
+    if not data_dir.is_absolute():
+        data_dir = root / data_dir
+
+    moodle_courses_url = _get_value("XMUM_MOODLE_COURSES_URL", env_values) or "https://l.xmu.edu.my/my/"
+
+    return AgentConfig(
+        root=root,
+        username=settings.moodle_username.strip(),
+        password=settings.moodle_password,
+        moodle_courses_url=moodle_courses_url,
+        data_dir=data_dir,
+        courses_dir=data_dir / "courses",
+        index_path=data_dir / "index.json",
+        docx_path=data_dir / "Course_Knowledge_Checklist.docx",
+        headless=_as_bool(_get_value("XMUM_AGENT_HEADLESS", env_values), default=True),
+        course_include_regex=_get_optional_value("XMUM_COURSE_INCLUDE_REGEX", env_values),
+        course_exclude_regex=_get_optional_value("XMUM_COURSE_EXCLUDE_REGEX", env_values),
+    )
+
+
 def _read_json(path: Path) -> Dict[str, object]:
     if not path.exists():
         return {}
@@ -111,7 +149,7 @@ def _read_json(path: Path) -> Dict[str, object]:
 
 def _merge_model_providers(saved_providers) -> List[Dict[str, object]]:
     saved_by_id = {
-        str(provider.get("id")): provider
+        LEGACY_PROVIDER_IDS.get(str(provider.get("id")), str(provider.get("id"))): provider
         for provider in saved_providers
         if isinstance(provider, dict) and provider.get("id")
     }
@@ -122,7 +160,7 @@ def _merge_model_providers(saved_providers) -> List[Dict[str, object]]:
         merged.update(
             {
                 "base_url": str(saved.get("base_url", default_provider["base_url"])),
-                "model": str(saved.get("model", default_provider["model"])),
+                "model": str(default_provider["model"]),
                 "api_key": str(saved.get("api_key", "")),
                 "enabled": bool(saved.get("enabled", False)),
             }
@@ -138,7 +176,7 @@ def _write_env_file(path: Path, settings: GuiSettings) -> None:
     existing.setdefault("XMUM_MOODLE_COURSES_URL", "https://l.xmu.edu.my/my/")
     existing.setdefault("XMUM_AGENT_DATA_DIR", "data")
     existing.setdefault("XMUM_AGENT_HEADLESS", "true")
-    existing.setdefault("XMUM_COURSE_INCLUDE_REGEX", "2026/04")
+    existing.setdefault("XMUM_COURSE_INCLUDE_REGEX", "")
     existing.setdefault("XMUM_COURSE_EXCLUDE_REGEX", "")
 
     ordered_keys = [

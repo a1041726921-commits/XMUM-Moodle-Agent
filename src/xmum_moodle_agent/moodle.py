@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 from urllib.parse import unquote, urlparse
@@ -24,6 +26,35 @@ RESOURCE_EXTENSIONS = {
 
 class MoodleAutomationError(RuntimeError):
     """Raised when Moodle browser automation cannot complete a required step."""
+
+
+def configure_playwright_browser_path(frozen: bool = False) -> None:
+    current_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if current_path and not _is_missing_bundled_playwright_path(current_path, frozen):
+        return
+    if not frozen:
+        return
+
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        browser_cache = Path(local_app_data) / "ms-playwright"
+    else:
+        browser_cache = Path.home() / "AppData" / "Local" / "ms-playwright"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_cache)
+
+
+def _is_missing_bundled_playwright_path(path_text: str, frozen: bool) -> bool:
+    if not frozen:
+        return False
+    path = Path(path_text)
+    lower_parts = {part.lower() for part in path.parts}
+    return (
+        not path.exists()
+        and ".local-browsers" in lower_parts
+        and "playwright" in lower_parts
+        and "driver" in lower_parts
+        and "package" in lower_parts
+    )
 
 
 def discover_courses_from_links(links: Sequence[Link]) -> List[Course]:
@@ -164,6 +195,113 @@ async def _wait_for_page_ready(page) -> None:
         pass
 
 
+async def _prepare_all_courses_view(page) -> None:
+    await _select_all_courses_filter(page)
+    await _wait_for_page_ready(page)
+    await _expand_all_course_cards(page)
+    await _wait_for_page_ready(page)
+
+
+async def _select_all_courses_filter(page) -> None:
+    try:
+        await page.evaluate(
+            """() => {
+                // Prefer Moodle's "All (including removed from view)" option.
+                const hiddenValues = new Set([
+                    'allincludinghidden',
+                    'allincludingremovedfromview',
+                    'allincludingremoved',
+                    'allincludinghiddenfromview'
+                ]);
+                const hiddenText = /all\\s*\\(\\s*including removed from view\\s*\\)|including removed from view|including hidden|removed from view/i;
+                const allText = /^(all|all courses|全部|所有|所有课程)$/i;
+                const normalize = value => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                const dispatchChange = element => {
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+
+                for (const select of document.querySelectorAll('select')) {
+                    const options = Array.from(select.options);
+                    let option = options.find(candidate => {
+                        const text = (candidate.textContent || '').trim();
+                        const value = normalize(candidate.value || candidate.getAttribute('data-value'));
+                        return hiddenText.test(text) || hiddenValues.has(value);
+                    });
+                    option = option || options.find(candidate => {
+                        const text = (candidate.textContent || '').trim();
+                        const value = normalize(candidate.value || candidate.getAttribute('data-value'));
+                        return allText.test(text) || value === 'all';
+                    });
+                    if (option && select.value !== option.value) {
+                        select.value = option.value;
+                        dispatchChange(select);
+                        return true;
+                    }
+                    if (option) {
+                        return true;
+                    }
+                }
+
+                const candidates = Array.from(document.querySelectorAll(
+                    'button, a, [role="option"], [data-value], [data-filtervalue]'
+                ));
+                let target = candidates.find(element => {
+                    const text = (element.textContent || element.getAttribute('aria-label') || '').trim();
+                    const value = normalize(
+                        element.getAttribute('data-value') ||
+                        element.getAttribute('data-filtervalue') ||
+                        element.getAttribute('href')
+                    );
+                    return hiddenText.test(text) || hiddenValues.has(value);
+                });
+                target = target || candidates.find(element => {
+                    const text = (element.textContent || element.getAttribute('aria-label') || '').trim();
+                    const value = normalize(element.getAttribute('data-value') || element.getAttribute('data-filtervalue') || '');
+                    return allText.test(text) || value === 'all';
+                });
+                if (target) {
+                    target.click();
+                    return true;
+                }
+                return false;
+            }"""
+        )
+    except Exception:
+        pass
+
+
+async def _expand_all_course_cards(page) -> None:
+    if not hasattr(page, "locator"):
+        return
+    selectors = [
+        'button:has-text("Show more")',
+        'a:has-text("Show more")',
+        'button:has-text("Load more")',
+        'a:has-text("Load more")',
+        'button:has-text("显示更多")',
+        'a:has-text("显示更多")',
+        'button:has-text("加载更多")',
+        'a:has-text("加载更多")',
+        '[data-action="more-courses"]',
+        '[data-region="paging-control"] button',
+    ]
+    for _ in range(20):
+        clicked = False
+        for selector in selectors:
+            try:
+                locator = page.locator(selector).first
+                if await locator.count():
+                    await locator.click()
+                    clicked = True
+                    await _wait_for_page_ready(page)
+                    break
+            except Exception:
+                continue
+        if not clicked:
+            return
+
+
 def _classify_links(links: Sequence[Link]) -> Dict[str, int]:
     counts = {
         "total": len(links),
@@ -189,6 +327,7 @@ class MoodleClient:
         self.config = config
 
     async def __aenter__(self):
+        configure_playwright_browser_path(frozen=bool(getattr(sys, "frozen", False)))
         try:
             from playwright.async_api import async_playwright
         except Exception as exc:
@@ -238,16 +377,16 @@ class MoodleClient:
         for url in _course_overview_urls(self.config.moodle_courses_url):
             await self.page.goto(url, wait_until="domcontentloaded")
             await _wait_for_page_ready(self.page)
+            if "/my/courses.php" in url:
+                await _prepare_all_courses_view(self.page)
             links.extend(await _extract_links(self.page))
         return discover_courses_from_links(links)
 
     async def debug_page(self, output_dir: Path) -> Dict[str, object]:
         output_dir.mkdir(parents=True, exist_ok=True)
-        await self.page.goto(self.config.moodle_courses_url, wait_until="domcontentloaded")
-        try:
-            await self.page.wait_for_load_state("networkidle", timeout=10000)
-        except Exception:
-            pass
+        await self.page.goto(_course_overview_urls(self.config.moodle_courses_url)[0], wait_until="domcontentloaded")
+        await _wait_for_page_ready(self.page)
+        await _prepare_all_courses_view(self.page)
         links = await _extract_links(self.page)
         title = await self.page.title()
         url = self.page.url
@@ -290,10 +429,11 @@ class MoodleClient:
 
 
 def _course_overview_urls(configured_url: str) -> List[str]:
-    urls = [configured_url]
+    urls = []
     parsed = urlparse(configured_url)
     if parsed.netloc == "l.xmu.edu.my":
         canonical = "https://l.xmu.edu.my/my/courses.php"
-        if canonical not in urls:
-            urls.append(canonical)
+        urls.append(canonical)
+    if configured_url not in urls:
+        urls.append(configured_url)
     return urls
