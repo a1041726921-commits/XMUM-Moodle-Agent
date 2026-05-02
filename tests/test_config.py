@@ -27,7 +27,6 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.data_dir, root / "data")
         self.assertEqual(config.courses_dir, root / "data" / "courses")
         self.assertEqual(config.index_path, root / "data" / "index.json")
-        self.assertEqual(config.docx_path, root / "data" / "Course_Knowledge_Checklist.docx")
         self.assertIsNone(config.course_include_regex)
         self.assertIsNone(config.course_exclude_regex)
 

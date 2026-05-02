@@ -17,7 +17,6 @@ class AgentConfig:
     data_dir: Path
     courses_dir: Path
     index_path: Path
-    docx_path: Path
     headless: bool
     course_include_regex: Optional[str]
     course_exclude_regex: Optional[str]
@@ -100,7 +99,6 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
         data_dir=data_dir,
         courses_dir=data_dir / "courses",
         index_path=data_dir / "index.json",
-        docx_path=data_dir / "Course_Knowledge_Checklist.docx",
         headless=_as_bool(_get_value("XMUM_AGENT_HEADLESS", env_values), default=True),
         course_include_regex=_get_optional_value(
             "XMUM_COURSE_INCLUDE_REGEX",

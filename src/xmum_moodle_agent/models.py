@@ -32,17 +32,6 @@ class ParsedMaterial:
 
 
 @dataclass
-class LectureNote:
-    title: str
-    subtopics: List[str]
-    professor_explanation: str
-    core_concepts: List[str]
-    key_takeaways: List[str]
-    review_questions: List[str]
-    source_file: str
-
-
-@dataclass
 class MaterialRecord:
     url: str
     course_title: str

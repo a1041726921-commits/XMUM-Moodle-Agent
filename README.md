@@ -1,6 +1,6 @@
 # XMUM Moodle Agent
 
-This local Python agent logs in to XMUM Moodle, downloads course materials, organizes them by course folder, and rebuilds a bilingual Word knowledge checklist.
+This local Python agent logs in to XMUM Moodle, downloads course materials, and organizes them by course folder.
 
 ## Setup
 
@@ -71,8 +71,7 @@ The GUI is built with PySide6/Qt and enables Windows high-DPI awareness at start
 so the modern white interface stays sharp on scaled displays.
 
 The GUI opens on a startup page with a `Sign In to Moodle` button. Pressing it opens a
-login popup; course selection, downloads, and knowledge-note settings stay locked
-until the login succeeds.
+login popup; course selection and downloads stay locked until the login succeeds.
 
 After login, the main window uses a left sidebar:
 
@@ -80,12 +79,6 @@ After login, the main window uses a left sidebar:
   The semester selector is generated from visible Moodle course titles, defaults
   to the latest term, and ticks all courses in that term after login. Use
   `Download Selected` to download, or `Open Folder` to open the local courseware folder.
-- `Knowledge Notes`: choose an API source such as `OPENAI`, `GOOGLE`,
-  `ANTHROPIC`, `ALIBABA`, `XIAOMI`, or `DEEPSEEK`, enter the API key, and use
-  `Test API` to check the connection before generating notes. The app does not
-  expose model selection in the UI; each provider uses an internal default model
-  and writes `Course_Knowledge_Checklist.docx`.
-
 Existing indexed courseware is skipped, and an existing same-name local file is
 not overwritten. Downloaded courseware is grouped by semester under
 `data/courses/<term>/<course name>/`, for example `data/courses/2025-09/...`.
@@ -110,8 +103,7 @@ intermediate files and can miss bundled DLLs.
 
 - Course files: `data/courses/<course name>/`
 - Download index: `data/index.json`
-- Knowledge checklist: `data/Course_Knowledge_Checklist.docx`
 
 ## Security Notes
 
-The agent reads credentials from `.env` or Windows environment variables only. `.env`, downloaded course files, generated documents, and logs are ignored by git.
+The agent reads credentials from `.env` or Windows environment variables only. `.env`, downloaded course files, and logs are ignored by git.

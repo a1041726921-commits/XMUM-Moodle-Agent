@@ -1,14 +1,11 @@
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 from .config import AgentConfig
 from .course_filter import filter_courses
-from .docx_writer import write_knowledge_docx
 from .downloader import save_resource_bytes
 from .files import content_sha256
 from .index import MaterialIndex
-from .knowledge import build_lecture_note
-from .models import LectureNote, MaterialRecord, ParsedMaterial
 from .moodle import MoodleClient
 from .parser import parse_material
 
@@ -43,8 +40,6 @@ async def run_agent(config: AgentConfig) -> Dict[str, int]:
                         stats["parsed"] += 1
 
     _parse_existing_unparsed(index)
-    notes_by_course = _notes_from_index(index)
-    write_knowledge_docx(notes_by_course, config.docx_path)
     index.save()
     return stats
 
@@ -55,26 +50,3 @@ def _parse_existing_unparsed(index: MaterialIndex) -> None:
             continue
         parsed = parse_material(Path(record.local_path))
         index.mark_parsed(record, parsed)
-
-
-def _notes_from_index(index: MaterialIndex) -> Dict[str, List[LectureNote]]:
-    notes_by_course: Dict[str, List[LectureNote]] = {}
-    for course_title, records in index.grouped_by_course().items():
-        notes_by_course[course_title] = [_note_from_record(record) for record in records]
-    return notes_by_course
-
-
-def _note_from_record(record: MaterialRecord) -> LectureNote:
-    parsed = ParsedMaterial(
-        title=record.parsed_title or record.resource_title,
-        headings=record.headings,
-        text=record.text_excerpt,
-        source_file=record.local_path,
-        parser=record.parser,
-    )
-    return build_lecture_note(
-        title=parsed.title,
-        headings=parsed.headings,
-        text=parsed.text,
-        source_file=parsed.source_file,
-    )

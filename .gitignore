@@ -8,8 +8,6 @@ build/
 dist/
 data/
 downloads/
-state/gui-settings.json
-state/*.out.txt
-state/*.err.txt
+state/
 *.log
 .superpowers/

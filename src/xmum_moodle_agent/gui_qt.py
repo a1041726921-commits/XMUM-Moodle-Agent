@@ -25,7 +25,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QStackedLayout,
     QStackedWidget,
@@ -36,7 +35,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QPropertyAnimation
 
-from xmum_moodle_agent.ai_notes import generate_course_knowledge_checklist, select_note_provider, test_provider_connection
 from xmum_moodle_agent.gui_actions import (
     course_terms_from_courses,
     download_selected_courses,
@@ -51,7 +49,6 @@ from xmum_moodle_agent.gui_assets import (
 )
 from xmum_moodle_agent.gui_state import (
     agent_config_from_gui_settings,
-    can_generate_notes,
     load_gui_settings,
     save_gui_settings,
 )
@@ -61,7 +58,6 @@ from xmum_moodle_agent.moodle import MoodleClient
 class OperationSignals(QObject):
     login_success = Signal(list)
     download_success = Signal(object)
-    notes_success = Signal(str)
     error = Signal(str, str)
 
 
@@ -462,7 +458,6 @@ class Sidebar(QFrame):
         self.nav_buttons = {
             "home": self._nav_button("首页", QIcon()),
             "courses": self._nav_button("课程", QIcon()),
-            "notes": self._nav_button("笔记", QIcon()),
         }
         for button in self.nav_buttons.values():
             layout.addWidget(button)
@@ -578,42 +573,6 @@ class CoursesView(QWidget):
         layout.addWidget(panel, 1)
 
 
-class NotesView(QWidget):
-    def __init__(self, status_text: str):
-        super().__init__()
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(18)
-
-        title = QLabel("笔记")
-        title.setObjectName("pageTitle")
-        layout.addWidget(title)
-
-        panel = QFrame()
-        panel.setObjectName("settingsPanel")
-        form = QFormLayout(panel)
-        form.setContentsMargins(18, 14, 18, 14)
-        form.setSpacing(14)
-        form.setLabelAlignment(Qt.AlignLeft)
-
-        self.api_status_label = QLabel(status_text)
-        self.api_status_label.setObjectName("settingsValue")
-        self.api_button = AnimatedButton("连接 API", variant="primary")
-        self.api_button.setObjectName("primaryButton")
-        self.generate_button = AnimatedButton("一键生成笔记", variant="primary")
-        self.generate_button.setObjectName("primaryButton")
-        hint = QLabel("生成时会自动使用已连接的 AI 公司 API，并套用内置课程知识整理提示词。")
-        hint.setObjectName("hintLabel")
-        hint.setWordWrap(True)
-
-        form.addRow("API 状态", self.api_status_label)
-        form.addRow("AI 公司 API", self.api_button)
-        form.addRow("生成笔记", self.generate_button)
-        form.addRow("", hint)
-        layout.addWidget(panel)
-        layout.addStretch(1)
-
-
 class MoodleAgentQtWindow(QMainWindow):
     def __init__(self, root_path: Path):
         super().__init__()
@@ -641,7 +600,6 @@ class MoodleAgentQtWindow(QMainWindow):
         self.setStyleSheet(_app_stylesheet())
 
         self._build_layout()
-        self._refresh_note_controls()
         self._set_navigation_enabled(False)
         self._show_page("home")
         self._log("Qt GUI started")
@@ -697,7 +655,6 @@ class MoodleAgentQtWindow(QMainWindow):
         self.status_label = self.sidebar.status_label
         self.nav_buttons["home"].clicked.connect(lambda: self._show_page("home"))
         self.nav_buttons["courses"].clicked.connect(lambda: self._show_page("courses"))
-        self.nav_buttons["notes"].clicked.connect(lambda: self._show_page("notes"))
         self.sidebar_login_button.clicked.connect(self._open_login_window)
 
         main = QFrame()
@@ -709,13 +666,11 @@ class MoodleAgentQtWindow(QMainWindow):
         self.pages = QStackedWidget()
         home_view = HomeView()
         courses_view = CoursesView()
-        notes_view = NotesView(self._api_status_text())
         self.page_widgets = {
             "home": home_view,
             "courses": courses_view,
-            "notes": notes_view,
         }
-        for page in ("home", "courses", "notes"):
+        for page in ("home", "courses"):
             self.pages.addWidget(self.page_widgets[page])
         main_layout.addWidget(self.pages, 1)
 
@@ -733,11 +688,6 @@ class MoodleAgentQtWindow(QMainWindow):
         self.course_table = courses_view.course_table
         self.course_table.itemChanged.connect(self._handle_course_item_changed)
         courses_view.open_button.clicked.connect(self._open_download_directory)
-
-        self.api_status_label = notes_view.api_status_label
-        self.generate_notes_button = notes_view.generate_button
-        notes_view.api_button.clicked.connect(self._open_api_window)
-        self.generate_notes_button.clicked.connect(self._run_generate_notes)
 
         self.bottom_status_label = QLabel("登录 Moodle 后开始")
         self.bottom_status_label.setObjectName("bottomStatus")
@@ -758,10 +708,7 @@ class MoodleAgentQtWindow(QMainWindow):
         button.setObjectName("navButton")
         button.setCheckable(True)
         button.setMinimumHeight(42)
-        if text in ("Courses", "课程"):
-            button.clicked.connect(lambda: self._show_page("courses"))
-        else:
-            button.clicked.connect(lambda: self._show_page("notes"))
+        button.clicked.connect(lambda: self._show_page("courses"))
         return button
 
     def _build_home_page(self) -> QWidget:
@@ -854,41 +801,6 @@ class MoodleAgentQtWindow(QMainWindow):
         layout.addWidget(panel, 1)
         return page
 
-    def _build_notes_page(self) -> QWidget:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(18)
-
-        title = QLabel("知识笔记")
-        title.setObjectName("pageTitle")
-        layout.addWidget(title)
-
-        panel = QFrame()
-        panel.setObjectName("panel")
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(18, 18, 18, 18)
-        panel_layout.setSpacing(12)
-        self.api_status_label = QLabel(self._api_status_text())
-        panel_layout.addWidget(self.api_status_label)
-
-        api_button = AnimatedButton("连接 API", variant="primary")
-        api_button.setObjectName("primaryButton")
-        api_button.clicked.connect(self._open_api_window)
-        panel_layout.addWidget(api_button, alignment=Qt.AlignLeft)
-
-        self.generate_notes_button = AnimatedButton("一键生成笔记", variant="primary")
-        self.generate_notes_button.setObjectName("primaryButton")
-        self.generate_notes_button.clicked.connect(self._run_generate_notes)
-        panel_layout.addWidget(self.generate_notes_button, alignment=Qt.AlignLeft)
-
-        hint = QLabel("生成时会自动使用已连接的 AI 公司 API，并套用内置课程知识整理提示词。")
-        hint.setObjectName("hintLabel")
-        panel_layout.addWidget(hint)
-        layout.addWidget(panel)
-        layout.addStretch(1)
-        return page
-
     def _show_page(self, page_name: str) -> None:
         if page_name != "home" and not self.logged_in:
             self._set_status("登录 Moodle 后开始")
@@ -911,47 +823,9 @@ class MoodleAgentQtWindow(QMainWindow):
         dialog = LoginDialog(self)
         dialog.exec()
 
-    def _open_api_window(self) -> None:
-        dialog = ApiSettingsDialog(self, self.settings.model_providers, self._save_api_settings)
-        dialog.exec()
-
     def _save_moodle(self) -> None:
         save_gui_settings(self.root_path, self.settings)
         self._set_status("Moodle 登录设置已保存")
-
-    def _save_api_settings(self, providers) -> None:
-        self.settings.model_providers = providers
-        save_gui_settings(self.root_path, self.settings)
-        self._refresh_note_controls()
-        self._set_status("AI 公司 API 设置已保存")
-
-    def _run_generate_notes(self) -> None:
-        provider = select_note_provider(self.settings.model_providers)
-        if not provider:
-            self._show_warning("尚未连接 API", "请先在 API 设置中启用一个 AI 公司并填写 API Key。")
-            return
-        self._set_busy(True)
-        self._set_status("正在整理课程资料并生成 Word 笔记...")
-        signals = OperationSignals()
-        self._worker_signals.append(signals)
-        signals.notes_success.connect(self._handle_notes_success)
-        signals.error.connect(self._show_error)
-        threading.Thread(target=self._notes_worker, args=(signals, provider), daemon=True).start()
-
-    def _notes_worker(self, signals: OperationSignals, provider) -> None:
-        try:
-            output_path = generate_course_knowledge_checklist(self.root_path, provider)
-        except Exception as exc:
-            signals.error.emit("笔记生成失败", self._exception_detail(exc))
-            return
-        signals.notes_success.emit(str(output_path))
-
-    def _handle_notes_success(self, output_path: str) -> None:
-        message = f"笔记已生成：{output_path}"
-        self._set_busy(False)
-        self._set_status(message)
-        self._log(message)
-        self._show_info("笔记生成完成", message)
 
     def _run_login_and_load_courses(self) -> None:
         if not self.settings.moodle_username or not self.settings.moodle_password:
@@ -1113,30 +987,11 @@ class MoodleAgentQtWindow(QMainWindow):
         except Exception as exc:
             self._show_error("打开文件夹失败", self._exception_detail(exc))
 
-    def _refresh_note_controls(self) -> None:
-        connected = [
-            provider
-            for provider in self.settings.model_providers
-            if provider.get("enabled") and str(provider.get("api_key", "")).strip()
-        ]
-        self.api_status_label.setText(self._api_status_text())
-        enabled = can_generate_notes(self.settings)
-        self.generate_notes_button.setEnabled(enabled)
-
-    def _api_status_text(self) -> str:
-        count = sum(
-            1
-            for provider in self.settings.model_providers
-            if provider.get("enabled") and str(provider.get("api_key", "")).strip()
-        )
-        return f"已连接 {count} 个 AI 公司 API" if count else "尚未连接 AI 公司 API"
-
     def _set_busy(self, busy: bool) -> None:
-        for widget in (self.splash_login_button, self.sidebar_login_button, self.download_button, self.generate_notes_button):
+        for widget in (self.splash_login_button, self.sidebar_login_button, self.download_button):
             widget.setEnabled(not busy)
         if not busy:
             self._set_navigation_enabled(self.logged_in)
-            self._refresh_note_controls()
 
     def _show_info(self, title: str, text: str) -> None:
         self._show_message(QMessageBox.Information, title, text)
@@ -1195,7 +1050,7 @@ class LoginDialog(QDialog):
         title = QLabel("登录 Moodle")
         title.setObjectName("dialogTitle")
         layout.addWidget(title)
-        subtitle = QLabel("选择课程、下载文件或生成笔记前，请先登录。")
+        subtitle = QLabel("选择课程和下载文件前，请先登录。")
         subtitle.setObjectName("hintLabel")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
@@ -1250,130 +1105,6 @@ class LoginDialog(QDialog):
         self._sync_settings()
         self.accept()
         self.parent_window._run_login_and_load_courses()
-
-
-class ApiSettingsDialog(QDialog):
-    def __init__(self, parent: MoodleAgentQtWindow, providers, on_save):
-        super().__init__(parent)
-        self.on_save = on_save
-        self.providers = [dict(provider) for provider in providers]
-        self.current_provider_index = 0
-        self.provider_widgets = []
-        self.setObjectName("apiSettingsDialog")
-        self.setStyleSheet(parent.styleSheet())
-        self.setFont(parent.font())
-        self.setWindowTitle("AI 公司 API 设置")
-        self.resize(620, 420)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 20, 22, 18)
-        layout.setSpacing(14)
-        title = QLabel("AI 公司 API 设置")
-        title.setObjectName("dialogTitle")
-        layout.addWidget(title)
-        subtitle = QLabel("启用 AI 公司并输入 API Key 后，即可一键生成课程知识清单；模型由应用内置，不在界面中开放选择。")
-        subtitle.setObjectName("hintLabel")
-        subtitle.setWordWrap(True)
-        layout.addWidget(subtitle)
-
-        panel = QFrame()
-        panel.setObjectName("settingsPanel")
-        form = QFormLayout(panel)
-        form.setContentsMargins(18, 16, 18, 16)
-        form.setSpacing(12)
-
-        self.provider_select = QComboBox()
-        self.provider_select.setObjectName("providerSelect")
-        self.provider_select.addItems([str(provider.get("name", "")) for provider in self.providers])
-        self.provider_select.currentIndexChanged.connect(self._change_provider)
-        self.enabled_check = QCheckBox("启用此 API")
-        self.api_key_input = QLineEdit()
-        self.api_key_input.setPlaceholderText("API Key")
-        self.api_key_input.setEchoMode(QLineEdit.Password)
-        self.base_url_input = QLineEdit()
-        self.base_url_input.setPlaceholderText("Base URL")
-        form.addRow("API 来源", self.provider_select)
-        form.addRow("", self.enabled_check)
-        form.addRow("API Key", self.api_key_input)
-        form.addRow("Base URL", self.base_url_input)
-        layout.addWidget(panel, 1)
-
-        self.provider_widgets.append(
-            {
-                "enabled": self.enabled_check,
-                "api_key": self.api_key_input,
-                "base_url": self.base_url_input,
-            }
-        )
-        self._load_provider(0)
-
-        actions = QHBoxLayout()
-        self.test_button = AnimatedButton("测试 API")
-        self.test_button.clicked.connect(self._test_api)
-        actions.addWidget(self.test_button)
-        actions.addStretch(1)
-        cancel_button = AnimatedButton("取消")
-        cancel_button.clicked.connect(self.reject)
-        save_button = AnimatedButton("保存 API 设置", variant="primary")
-        save_button.setObjectName("primaryButton")
-        save_button.clicked.connect(self._save)
-        actions.addWidget(cancel_button)
-        actions.addWidget(save_button)
-        layout.addLayout(actions)
-
-    def _load_provider(self, index: int) -> None:
-        if not self.providers:
-            return
-        provider = self.providers[index]
-        self.enabled_check.setChecked(bool(provider.get("enabled")))
-        self.api_key_input.setText(str(provider.get("api_key", "")))
-        self.base_url_input.setText(str(provider.get("base_url", "")))
-
-    def _sync_current_provider(self) -> None:
-        if not self.providers:
-            return
-        provider = self.providers[self.current_provider_index]
-        provider["enabled"] = self.enabled_check.isChecked()
-        provider["api_key"] = self.api_key_input.text().strip()
-        provider["base_url"] = self.base_url_input.text().strip()
-
-    def _change_provider(self, index: int) -> None:
-        self._sync_current_provider()
-        self.current_provider_index = max(0, index)
-        self._load_provider(self.current_provider_index)
-
-    def _current_provider(self):
-        self._sync_current_provider()
-        return dict(self.providers[self.current_provider_index])
-
-    def _test_api(self) -> None:
-        provider = self._current_provider()
-        if not provider.get("api_key"):
-            self._show_test_result(False, "缺少 API Key", "请先输入 API Key。")
-            return
-        try:
-            test_provider_connection(provider)
-        except Exception as exc:
-            self._show_test_result(False, "API 测试失败", str(exc) or "连接失败。")
-            return
-        self._show_test_result(True, "API 测试成功", f"{provider.get('name')} 连接正常。")
-
-    def _show_test_result(self, success: bool, title: str, text: str) -> None:
-        icon = QMessageBox.Information if success else QMessageBox.Warning
-        message_box = QMessageBox(self)
-        message_box.setObjectName("messageBox")
-        message_box.setIcon(icon)
-        message_box.setWindowTitle(title)
-        message_box.setText(text)
-        message_box.setStandardButtons(QMessageBox.Ok)
-        message_box.setStyleSheet(self.styleSheet())
-        message_box.setFont(QFont(_preferred_widget_font_family(), 10))
-        message_box.exec()
-
-    def _save(self) -> None:
-        self._sync_current_provider()
-        self.on_save(self.providers)
-        self.accept()
 
 
 def _app_stylesheet() -> str:

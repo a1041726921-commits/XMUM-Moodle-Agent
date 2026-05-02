@@ -46,10 +46,9 @@ class QtGuiImportTests(unittest.TestCase):
             self.assertIsInstance(window.title_bar.minimize_button, AnimatedButton)
             self.assertIsInstance(window.title_bar.close_button, AnimatedButton)
             self.assertFalse(hasattr(window.title_bar, "maximize_button"))
-            self.assertEqual(set(window.nav_buttons), {"home", "courses", "notes"})
+            self.assertEqual(set(window.nav_buttons), {"home", "courses"})
             self.assertTrue(window.nav_buttons["home"].isEnabled())
             self.assertFalse(window.nav_buttons["courses"].isEnabled())
-            self.assertFalse(window.nav_buttons["notes"].isEnabled())
             self.assertEqual(window.status_label.text(), "登录 Moodle 后开始")
             self.assertIn("Microsoft YaHei UI", window.styleSheet())
             self.assertIn("Segoe UI", window.styleSheet())
@@ -59,7 +58,7 @@ class QtGuiImportTests(unittest.TestCase):
 
     def test_qt_shell_exposes_independent_view_classes_and_animated_buttons(self):
         qt_app()
-        from xmum_moodle_agent.gui_qt import AnimatedButton, CoursesView, HomeView, MoodleAgentQtWindow, NotesView, Sidebar
+        from xmum_moodle_agent.gui_qt import AnimatedButton, CoursesView, HomeView, MoodleAgentQtWindow, Sidebar
 
         with tempfile.TemporaryDirectory() as tmp:
             window = MoodleAgentQtWindow(Path(tmp))
@@ -68,13 +67,10 @@ class QtGuiImportTests(unittest.TestCase):
             self.assertIsInstance(window.sidebar, Sidebar)
             self.assertIsInstance(window.page_widgets["home"], HomeView)
             self.assertIsInstance(window.page_widgets["courses"], CoursesView)
-            self.assertIsInstance(window.page_widgets["notes"], NotesView)
             self.assertIsInstance(window.sidebar_login_button, AnimatedButton)
             self.assertIsInstance(window.splash_login_button, AnimatedButton)
             self.assertIsInstance(window.download_button, AnimatedButton)
             self.assertIsInstance(window.page_widgets["courses"].open_button, AnimatedButton)
-            self.assertIsInstance(window.page_widgets["notes"].api_button, AnimatedButton)
-            self.assertIsInstance(window.page_widgets["notes"].generate_button, AnimatedButton)
             for button in window.nav_buttons.values():
                 self.assertIsInstance(button, AnimatedButton)
             self.assertTrue(window.nav_buttons["courses"].icon().isNull())
@@ -184,104 +180,6 @@ class QtGuiImportTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(events, ["app", "window", "show", "exec"])
-
-    def test_api_settings_refresh_enable_note_controls(self):
-        qt_app()
-        from xmum_moodle_agent.gui_qt import MoodleAgentQtWindow
-
-        providers = [
-            {
-                "id": "openai",
-                "name": "OpenAI",
-                "enabled": True,
-                "api_key": "sk-test",
-                "base_url": "https://api.openai.com/v1",
-                "model": "gpt-test",
-            }
-        ]
-        with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
-            window._save_api_settings(providers)
-
-            self.assertTrue(window.generate_notes_button.isEnabled())
-            self.assertFalse(hasattr(window, "provider_combo"))
-            self.assertIn("1", window.api_status_label.text())
-
-            window.close()
-
-    def test_api_settings_dialog_does_not_expose_model_selection(self):
-        qt_app()
-        from PySide6.QtWidgets import QLabel, QPushButton, QComboBox
-
-        from xmum_moodle_agent.gui_qt import ApiSettingsDialog, MoodleAgentQtWindow
-
-        providers = [
-            {
-                "id": "google",
-                "name": "GOOGLE",
-                "enabled": True,
-                "api_key": "gemini-key",
-                "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-                "model": "gemini-3-flash-preview",
-            },
-            {
-                "id": "deepseek",
-                "name": "DEEPSEEK",
-                "enabled": False,
-                "api_key": "",
-                "base_url": "https://api.deepseek.com/v1",
-                "model": "deepseek-chat",
-            },
-        ]
-        with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
-            dialog = ApiSettingsDialog(window, providers, lambda saved: None)
-
-            combo = dialog.findChild(QComboBox, "providerSelect")
-            label_text = "\n".join(label.text() for label in dialog.findChildren(QLabel))
-            button_text = "\n".join(button.text() for button in dialog.findChildren(QPushButton))
-            self.assertIsNotNone(combo)
-            self.assertEqual([combo.itemText(i) for i in range(combo.count())], ["GOOGLE", "DEEPSEEK"])
-            self.assertIn("测试 API", button_text)
-            self.assertNotIn("默认模型", label_text)
-            self.assertNotIn("model", dialog.provider_widgets[0])
-
-            dialog.close()
-            window.close()
-
-    def test_api_settings_dialog_test_button_uses_current_form_values(self):
-        qt_app()
-        from xmum_moodle_agent import gui_qt
-        from xmum_moodle_agent.gui_qt import ApiSettingsDialog, MoodleAgentQtWindow
-
-        providers = [
-            {
-                "id": "google",
-                "name": "GOOGLE",
-                "enabled": False,
-                "api_key": "",
-                "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-                "model": "gemini-3-flash-preview",
-            }
-        ]
-        calls = []
-
-        with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
-            dialog = ApiSettingsDialog(window, providers, lambda saved: None)
-            dialog.api_key_input.setText("gemini-key")
-            dialog.base_url_input.setText("https://generativelanguage.googleapis.com/v1beta/openai")
-
-            with patch.object(gui_qt, "test_provider_connection", side_effect=lambda provider: calls.append(provider) or "ok"):
-                with patch.object(dialog, "_show_test_result") as result:
-                    dialog._test_api()
-
-            self.assertEqual(calls[0]["id"], "google")
-            self.assertEqual(calls[0]["api_key"], "gemini-key")
-            self.assertEqual(calls[0]["base_url"], "https://generativelanguage.googleapis.com/v1beta/openai")
-            result.assert_called_once()
-            dialog.close()
-            window.close()
 
     def test_empty_download_selection_shows_warning_without_starting_worker(self):
         qt_app()

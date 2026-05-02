@@ -15,7 +15,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="xmum-moodle-agent")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("init", help="Create local folders and .env example.")
-    subparsers.add_parser("run", help="Log in, download Moodle materials, and update the DOCX.")
+    subparsers.add_parser("run", help="Log in and download Moodle materials.")
     subparsers.add_parser("check-login", help="Verify Moodle credentials and print discovered course count.")
     subparsers.add_parser("debug-page", help="Save Moodle courses page screenshot, HTML, and link diagnostics.")
     schedule_parser = subparsers.add_parser("install-schedule", help="Install a Windows daily 08:00 task.")
@@ -35,7 +35,6 @@ def main(argv=None) -> int:
                 f"{stats['courses']} courses, {stats['resources']} resources, "
                 f"{stats['downloaded_or_changed']} downloaded/changed, {stats['parsed']} parsed."
             )
-            print(f"Knowledge checklist: {config.docx_path}")
             return 0
         if args.command == "check-login":
             config = load_config(root=root)
