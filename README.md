@@ -1,8 +1,21 @@
 # XMUM Moodle Agent
 
-This local Python agent logs in to XMUM Moodle, downloads course materials, and organizes them by course folder.
+XMUM Moodle Agent 是一个本地运行的 Python 工具，用于登录 XMUM Moodle，自动发现课程，下载课件资料，并按学期和课程整理到本地文件夹。
 
-## Setup
+## 功能
+
+- 登录 XMUM Moodle 并检查账号是否可用
+- 自动发现 Moodle 中可见的课程
+- 支持按学期筛选课程，例如 `2026/04`、`2025/09`
+- 下载选中的课程资料
+- 避免覆盖同名本地文件
+- 使用索引记录已下载资料，减少重复下载
+- 提供 PySide6/Qt 桌面图形界面
+- 支持打包为 Windows 独立可执行文件
+
+## 安装
+
+在 PowerShell 中进入项目目录：
 
 ```powershell
 cd D:\AGENT
@@ -12,7 +25,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m xmum_moodle_agent.cli init
 ```
 
-Edit `.env`:
+然后编辑 `.env`：
 
 ```env
 XMUM_MOODLE_USERNAME=your-campus-id
@@ -21,89 +34,113 @@ XMUM_COURSE_INCLUDE_REGEX=
 XMUM_COURSE_EXCLUDE_REGEX=
 ```
 
-Course discovery opens `https://l.xmu.edu.my/my/courses.php`, switches the Moodle
-view to `All (including removed from view)` when possible, and expands hidden
-course cards. Course filtering is optional and uses regular expressions against
-the full Moodle course title.
+`XMUM_COURSE_INCLUDE_REGEX` 和 `XMUM_COURSE_EXCLUDE_REGEX` 是可选的课程筛选规则，使用正则表达式匹配完整课程标题。
 
-Examples:
+## 课程筛选示例
+
+下载所有发现到的课程，包括已完成或从视图中隐藏的课程：
 
 ```env
-# Download every discovered course, including completed and expired courses.
 XMUM_COURSE_INCLUDE_REGEX=
+```
 
-# Only CYS/CST courses in the current semester.
+只下载当前学期的 CYS / CST 课程：
+
+```env
 XMUM_COURSE_INCLUDE_REGEX=^(CYS|CST).+2026/04
+```
 
-# Exclude general education courses.
+排除通识类课程：
+
+```env
 XMUM_COURSE_EXCLUDE_REGEX=^G
 ```
 
-## Commands
+课程发现会打开：
 
-Check login:
+```text
+https://l.xmu.edu.my/my/courses.php
+```
+
+程序会尽量切换到 `All (including removed from view)` 视图，并展开隐藏的课程卡片，以便发现更多课程。
+
+## 命令行用法
+
+检查 Moodle 登录状态：
 
 ```powershell
 .\.venv\Scripts\python.exe -m xmum_moodle_agent.cli check-login
 ```
 
-Run the agent:
+运行下载流程：
 
 ```powershell
 .\.venv\Scripts\python.exe -m xmum_moodle_agent.cli run
 ```
 
-Install the daily 08:00 Windows scheduled task:
+安装每天 08:00 自动运行的 Windows 计划任务：
 
 ```powershell
 .\.venv\Scripts\python.exe -m xmum_moodle_agent.cli install-schedule --time 08:00
 ```
 
-## Windows GUI
+## Windows 图形界面
 
-Launch the desktop GUI:
+启动桌面 GUI：
 
 ```powershell
 .\.venv\Scripts\python.exe -m xmum_moodle_agent.gui
 ```
 
-The GUI is built with PySide6/Qt and enables Windows high-DPI awareness at startup
-so the modern white interface stays sharp on scaled displays.
+图形界面基于 PySide6/Qt 构建，并在启动时启用 Windows 高 DPI 适配，让界面在缩放显示器上保持清晰。
 
-The GUI opens on a startup page with a `Sign In to Moodle` button. Pressing it opens a
-login popup; course selection and downloads stay locked until the login succeeds.
+启动后会先显示登录页面。点击 `Sign In to Moodle` 后会弹出登录窗口；登录成功前，课程选择和下载功能会保持锁定。
 
-After login, the main window uses a left sidebar:
+登录成功后，主界面左侧会显示导航栏：
 
-- `Courses`: choose a semester such as `2026/04` or `2025/09`, then tick courses.
-  The semester selector is generated from visible Moodle course titles, defaults
-  to the latest term, and ticks all courses in that term after login. Use
-  `Download Selected` to download, or `Open Folder` to open the local courseware folder.
-Existing indexed courseware is skipped, and an existing same-name local file is
-not overwritten. Downloaded courseware is grouped by semester under
-`data/courses/<term>/<course name>/`, for example `data/courses/2025-09/...`.
+- `Courses`：选择学期，例如 `2026/04` 或 `2025/09`，然后勾选要下载的课程。
+- 学期选项会根据 Moodle 中发现的课程标题自动生成。
+- 默认会选择最新学期，并自动勾选该学期的全部课程。
+- 点击 `Download Selected` 下载选中课程资料。
+- 点击 `Open Folder` 打开本地课件目录。
 
-Build a Windows executable:
+已经记录在索引中的课件会被跳过；如果本地已经存在同名文件，程序不会覆盖原文件，而是生成新的文件名。
+
+下载后的课件会按学期和课程整理，例如：
+
+```text
+data/courses/2025-09/<course name>/
+```
+
+## 打包为 Windows 可执行文件
+
+安装开发依赖：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+使用 PyInstaller 打包：
+
+```powershell
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --windowed --onefile --name XMUM-Moodle-Agent-Standalone --paths src --add-data "src\xmum_moodle_agent\assets;xmum_moodle_agent\assets" --icon src\xmum_moodle_agent\assets\xmum.ico src\xmum_moodle_agent\gui.py
 ```
 
-The generated executable is:
+生成的可执行文件位于：
 
 ```text
 dist\XMUM-Moodle-Agent-Standalone.exe
 ```
 
-Do not run executables from `build\`; that folder only contains PyInstaller
-intermediate files and can miss bundled DLLs.
+不要直接运行 `build\` 目录中的文件；该目录只包含 PyInstaller 的中间产物，可能缺少必要 DLL。
 
-## Output
+## 输出目录
 
-- Course files: `data/courses/<course name>/`
-- Download index: `data/index.json`
+- 课程文件：`data/courses/<course name>/`
+- 下载索引：`data/index.json`
 
-## Security Notes
+## 安全说明
 
-The agent reads credentials from `.env` or Windows environment variables only. `.env`, downloaded course files, and logs are ignored by git.
+程序只会从 `.env` 或 Windows 环境变量中读取账号密码。
+
+`.env`、下载的课程文件、运行日志、构建产物和本地状态文件都已通过 `.gitignore` 忽略，不应提交到 GitHub。
