@@ -1,10 +1,10 @@
-# XMUM Moodle Agent Modern UI Implementation Plan
+# XMUM Moodle Downloader Modern UI Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For implementation workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the approved modern PySide6 UI refresh for XMUM Moodle Agent.
+**Goal:** Implement the approved modern PySide6 UI refresh for XMUM Moodle Downloader.
 
-**Architecture:** Keep the GUI in `src/xmum_moodle_agent/gui_qt.py`, adding focused reusable widgets for animated buttons and the moving light backdrop. Reuse existing page classes and signal wiring so behavior remains unchanged while visuals become consistent.
+**Architecture:** Keep the GUI in `src/xmum_moodle_downloader/gui_qt.py`, adding focused reusable widgets for animated buttons and the moving light backdrop. Reuse existing page classes and signal wiring so behavior remains unchanged while visuals become consistent.
 
 **Tech Stack:** Python 3.9+, PySide6, pytest.
 
@@ -23,7 +23,7 @@
 ### Task 2: Add Animated Widgets
 
 **Files:**
-- Modify: `src/xmum_moodle_agent/gui_qt.py`
+- Modify: `src/xmum_moodle_downloader/gui_qt.py`
 
 - [ ] Add `AnimatedButton`, a `QPushButton` subclass with a paint-time scale property.
 - [ ] Add hover animation through a dynamic `hoverProgress` property and stylesheet selectors.
@@ -33,7 +33,7 @@
 ### Task 3: Add Dynamic Backdrop
 
 **Files:**
-- Modify: `src/xmum_moodle_agent/gui_qt.py`
+- Modify: `src/xmum_moodle_downloader/gui_qt.py`
 
 - [ ] Add `LightBackdrop`, a QWidget that paints two radial moving lights.
 - [ ] Use `QTimer` to update slow movement.
@@ -42,7 +42,7 @@
 ### Task 4: Apply Unified Styling
 
 **Files:**
-- Modify: `src/xmum_moodle_agent/gui_qt.py`
+- Modify: `src/xmum_moodle_downloader/gui_qt.py`
 
 - [ ] Replace button construction with a helper that returns `AnimatedButton`.
 - [ ] Move title controls to the right and remove the old Mac traffic-light controls.

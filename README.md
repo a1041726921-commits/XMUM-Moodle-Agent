@@ -1,6 +1,6 @@
-# XMUM Moodle Agent
+# XMUM Moodle Downloader
 
-XMUM Moodle Agent 是一个本地运行的 Python 工具，用于登录 XMUM Moodle，自动发现课程，下载课件资料，并按学期和课程整理到本地文件夹。
+XMUM Moodle Downloader 是一个本地运行的 Python 工具，用于登录 XMUM Moodle，自动发现课程，下载课件资料，并按学期和课程整理到本地文件夹。
 
 ## 功能
 
@@ -18,11 +18,11 @@ XMUM Moodle Agent 是一个本地运行的 Python 工具，用于登录 XMUM Moo
 在 PowerShell 中进入项目目录：
 
 ```powershell
-cd D:\AGENT
+cd D:\XMUM-Moodle-Downloader
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
 .\.venv\Scripts\python.exe -m playwright install chromium
-.\.venv\Scripts\python.exe -m xmum_moodle_agent.cli init
+.\.venv\Scripts\python.exe -m xmum_moodle_downloader.cli init
 ```
 
 然后编辑 `.env`：
@@ -69,19 +69,19 @@ https://l.xmu.edu.my/my/courses.php
 检查 Moodle 登录状态：
 
 ```powershell
-.\.venv\Scripts\python.exe -m xmum_moodle_agent.cli check-login
+.\.venv\Scripts\python.exe -m xmum_moodle_downloader.cli check-login
 ```
 
 运行下载流程：
 
 ```powershell
-.\.venv\Scripts\python.exe -m xmum_moodle_agent.cli run
+.\.venv\Scripts\python.exe -m xmum_moodle_downloader.cli run
 ```
 
 安装每天 08:00 自动运行的 Windows 计划任务：
 
 ```powershell
-.\.venv\Scripts\python.exe -m xmum_moodle_agent.cli install-schedule --time 08:00
+.\.venv\Scripts\python.exe -m xmum_moodle_downloader.cli install-schedule --time 08:00
 ```
 
 ## Windows 图形界面
@@ -89,7 +89,7 @@ https://l.xmu.edu.my/my/courses.php
 启动桌面 GUI：
 
 ```powershell
-.\.venv\Scripts\python.exe -m xmum_moodle_agent.gui
+.\.venv\Scripts\python.exe -m xmum_moodle_downloader.gui
 ```
 
 图形界面基于 PySide6/Qt 构建，并在启动时启用 Windows 高 DPI 适配，让界面在缩放显示器上保持清晰。
@@ -123,13 +123,13 @@ data/courses/2025-09/<course name>/
 使用 PyInstaller 打包：
 
 ```powershell
-.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --windowed --onefile --name XMUM-Moodle-Agent-Standalone --paths src --add-data "src\xmum_moodle_agent\assets;xmum_moodle_agent\assets" --icon src\xmum_moodle_agent\assets\xmum.ico src\xmum_moodle_agent\gui.py
+.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --windowed --onefile --name XUMU-moodle-downloader --paths src --add-data "src\xmum_moodle_downloader\assets;xmum_moodle_downloader\assets" --icon src\xmum_moodle_downloader\assets\xmum.ico src\xmum_moodle_downloader\gui.py
 ```
 
 生成的可执行文件位于：
 
 ```text
-dist\XMUM-Moodle-Agent-Standalone.exe
+dist\XUMU-moodle-downloader.exe
 ```
 
 不要直接运行 `build\` 目录中的文件；该目录只包含 PyInstaller 的中间产物，可能缺少必要 DLL。

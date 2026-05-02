@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from xmum_moodle_agent.moodle import (
+from xmum_moodle_downloader.moodle import (
     MoodleClient,
     _course_overview_urls,
     configure_playwright_browser_path,

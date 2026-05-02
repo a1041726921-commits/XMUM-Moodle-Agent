@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
 
-from .config import AgentConfig, _as_bool, _get_optional_value, _get_value, _read_env_file
+from .config import DownloaderConfig, _as_bool, _get_optional_value, _get_value, _read_env_file
 
 
 @dataclass
@@ -44,17 +44,17 @@ def save_gui_settings(root: Path, settings: GuiSettings) -> None:
     )
 
 
-def agent_config_from_gui_settings(root: Path, settings: GuiSettings) -> AgentConfig:
+def downloader_config_from_gui_settings(root: Path, settings: GuiSettings) -> DownloaderConfig:
     root = root.resolve()
     env_values = _read_env_file(root / ".env")
-    data_dir_value = _get_value("XMUM_AGENT_DATA_DIR", env_values) or "data"
+    data_dir_value = _get_value("XMUM_DOWNLOADER_DATA_DIR", env_values) or "data"
     data_dir = Path(data_dir_value)
     if not data_dir.is_absolute():
         data_dir = root / data_dir
 
     moodle_courses_url = _get_value("XMUM_MOODLE_COURSES_URL", env_values) or "https://l.xmu.edu.my/my/"
 
-    return AgentConfig(
+    return DownloaderConfig(
         root=root,
         username=settings.moodle_username.strip(),
         password=settings.moodle_password,
@@ -62,7 +62,7 @@ def agent_config_from_gui_settings(root: Path, settings: GuiSettings) -> AgentCo
         data_dir=data_dir,
         courses_dir=data_dir / "courses",
         index_path=data_dir / "index.json",
-        headless=_as_bool(_get_value("XMUM_AGENT_HEADLESS", env_values), default=True),
+        headless=_as_bool(_get_value("XMUM_DOWNLOADER_HEADLESS", env_values), default=True),
         course_include_regex=_get_optional_value("XMUM_COURSE_INCLUDE_REGEX", env_values),
         course_exclude_regex=_get_optional_value("XMUM_COURSE_EXCLUDE_REGEX", env_values),
     )
@@ -83,8 +83,8 @@ def _write_env_file(path: Path, settings: GuiSettings) -> None:
     existing["XMUM_MOODLE_USERNAME"] = settings.moodle_username.strip()
     existing["XMUM_MOODLE_PASSWORD"] = settings.moodle_password if settings.remember_password else ""
     existing.setdefault("XMUM_MOODLE_COURSES_URL", "https://l.xmu.edu.my/my/")
-    existing.setdefault("XMUM_AGENT_DATA_DIR", "data")
-    existing.setdefault("XMUM_AGENT_HEADLESS", "true")
+    existing.setdefault("XMUM_DOWNLOADER_DATA_DIR", "data")
+    existing.setdefault("XMUM_DOWNLOADER_HEADLESS", "true")
     existing.setdefault("XMUM_COURSE_INCLUDE_REGEX", "")
     existing.setdefault("XMUM_COURSE_EXCLUDE_REGEX", "")
 
@@ -92,8 +92,8 @@ def _write_env_file(path: Path, settings: GuiSettings) -> None:
         "XMUM_MOODLE_USERNAME",
         "XMUM_MOODLE_PASSWORD",
         "XMUM_MOODLE_COURSES_URL",
-        "XMUM_AGENT_DATA_DIR",
-        "XMUM_AGENT_HEADLESS",
+        "XMUM_DOWNLOADER_DATA_DIR",
+        "XMUM_DOWNLOADER_HEADLESS",
         "XMUM_COURSE_INCLUDE_REGEX",
         "XMUM_COURSE_EXCLUDE_REGEX",
     ]

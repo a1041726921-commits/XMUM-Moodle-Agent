@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
-from .config import AgentConfig
+from .config import DownloaderConfig
 from .course_filter import filter_courses
 from .downloader import save_resource_bytes
 from .files import content_sha256
@@ -10,7 +10,7 @@ from .moodle import MoodleClient
 from .parser import parse_material
 
 
-async def run_agent(config: AgentConfig) -> Dict[str, int]:
+async def run_downloader(config: DownloaderConfig) -> Dict[str, int]:
     config.courses_dir.mkdir(parents=True, exist_ok=True)
     index = MaterialIndex(config.index_path)
     stats = {"courses": 0, "resources": 0, "downloaded_or_changed": 0, "parsed": 0}

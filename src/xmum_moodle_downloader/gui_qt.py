@@ -35,24 +35,24 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QPropertyAnimation
 
-from xmum_moodle_agent.gui_actions import (
+from xmum_moodle_downloader.gui_actions import (
     course_terms_from_courses,
     download_selected_courses,
     filter_courses_by_term,
     visible_courses_after_login,
 )
-from xmum_moodle_agent.gui_assets import (
+from xmum_moodle_downloader.gui_assets import (
     app_icon_path,
     asset_path,
     enable_windows_dpi_awareness,
     ensure_icon_assets,
 )
-from xmum_moodle_agent.gui_state import (
-    agent_config_from_gui_settings,
+from xmum_moodle_downloader.gui_state import (
+    downloader_config_from_gui_settings,
     load_gui_settings,
     save_gui_settings,
 )
-from xmum_moodle_agent.moodle import MoodleClient
+from xmum_moodle_downloader.moodle import MoodleClient
 
 
 class OperationSignals(QObject):
@@ -395,7 +395,7 @@ class TitleBar(QWidget):
         layout.setContentsMargins(18, 0, 10, 0)
         layout.setSpacing(10)
 
-        title = QLabel("XMUM Moodle Agent")
+        title = QLabel("XMUM Moodle Downloader")
         title.setObjectName("titleLabel")
         layout.addWidget(title)
         layout.addStretch(1)
@@ -448,7 +448,7 @@ class Sidebar(QFrame):
         brand_mark.setFixedSize(28, 28)
         brand_mark.setPixmap(brand_icon.pixmap(28, 28))
         brand_mark.setScaledContents(True)
-        brand = QLabel("XMUM Agent")
+        brand = QLabel("XMUM Downloader")
         brand.setObjectName("brandLabel")
         brand_row.addWidget(brand_mark)
         brand_row.addWidget(brand, 1)
@@ -573,7 +573,7 @@ class CoursesView(QWidget):
         layout.addWidget(panel, 1)
 
 
-class MoodleAgentQtWindow(QMainWindow):
+class MoodleDownloaderQtWindow(QMainWindow):
     def __init__(self, root_path: Path):
         super().__init__()
         self.root_path = root_path.resolve()
@@ -591,7 +591,7 @@ class MoodleAgentQtWindow(QMainWindow):
         self.app_icon = app_icon_path()
         self.setFont(QFont(_preferred_widget_font_family(), 10))
 
-        self.setWindowTitle("XMUM Moodle Agent")
+        self.setWindowTitle("XMUM Moodle Downloader")
         self.setWindowIcon(QIcon(str(self.app_icon)))
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -717,7 +717,7 @@ class MoodleAgentQtWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addStretch(1)
 
-        title = QLabel("XMUM Moodle Agent")
+        title = QLabel("XMUM Moodle Downloader")
         title.setObjectName("heroTitle")
         title.setAlignment(Qt.AlignCenter)
         subtitle = QLabel("登录 Moodle，选择学期，并下载课程资料。")
@@ -848,7 +848,7 @@ class MoodleAgentQtWindow(QMainWindow):
         signals.login_success.emit(courses)
 
     async def _load_courses_async(self):
-        config = agent_config_from_gui_settings(self.root_path, self.settings)
+        config = downloader_config_from_gui_settings(self.root_path, self.settings)
         async with MoodleClient(config) as moodle:
             return await visible_courses_after_login(moodle)
 
@@ -964,7 +964,7 @@ class MoodleAgentQtWindow(QMainWindow):
         signals.download_success.emit(report)
 
     async def _download_selected_courses_async(self, selected_courses):
-        config = agent_config_from_gui_settings(self.root_path, self.settings)
+        config = downloader_config_from_gui_settings(self.root_path, self.settings)
         async with MoodleClient(config) as moodle:
             await moodle.login()
             return await download_selected_courses(self.root_path, moodle, selected_courses)
@@ -1035,7 +1035,7 @@ class MoodleAgentQtWindow(QMainWindow):
 
 
 class LoginDialog(QDialog):
-    def __init__(self, parent: MoodleAgentQtWindow):
+    def __init__(self, parent: MoodleDownloaderQtWindow):
         super().__init__(parent)
         self.parent_window = parent
         self.setObjectName("loginDialog")
@@ -1343,7 +1343,7 @@ def _qt_application(argv=None) -> QApplication:
 
 def main(argv=None) -> int:
     app = _qt_application(argv)
-    window = MoodleAgentQtWindow(Path.cwd())
+    window = MoodleDownloaderQtWindow(Path.cwd())
     window.show()
     return app.exec()
 

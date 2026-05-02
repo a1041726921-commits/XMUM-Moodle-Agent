@@ -2,10 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from xmum_moodle_agent.files import content_sha256, safe_filename
-from xmum_moodle_agent.index import MaterialIndex
-from xmum_moodle_agent.models import Course, Resource
-from xmum_moodle_agent.downloader import save_resource_bytes
+from xmum_moodle_downloader.files import content_sha256, safe_filename
+from xmum_moodle_downloader.index import MaterialIndex
+from xmum_moodle_downloader.models import Course, Resource
+from xmum_moodle_downloader.downloader import save_resource_bytes
 
 
 class IndexAndFilesTests(unittest.TestCase):

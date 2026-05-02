@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from xmum_moodle_agent.models import Course
+from xmum_moodle_downloader.models import Course
 
 
 def qt_app():
@@ -20,21 +20,21 @@ def qt_app():
 
 class QtGuiImportTests(unittest.TestCase):
     def test_qt_gui_module_exposes_main_window(self):
-        from xmum_moodle_agent import gui_qt
+        from xmum_moodle_downloader import gui_qt
 
-        self.assertTrue(hasattr(gui_qt, "MoodleAgentQtWindow"))
+        self.assertTrue(hasattr(gui_qt, "MoodleDownloaderQtWindow"))
 
     def test_qt_window_has_modern_shell_and_locked_navigation(self):
         qt_app()
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QGraphicsDropShadowEffect, QStackedLayout
 
-        from xmum_moodle_agent.gui_qt import AnimatedButton, LightBackdrop, MoodleAgentQtWindow
+        from xmum_moodle_downloader.gui_qt import AnimatedButton, LightBackdrop, MoodleDownloaderQtWindow
 
         with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
+            window = MoodleDownloaderQtWindow(Path(tmp))
 
-            self.assertEqual(window.windowTitle(), "XMUM Moodle Agent")
+            self.assertEqual(window.windowTitle(), "XMUM Moodle Downloader")
             self.assertTrue(window.windowFlags() & Qt.FramelessWindowHint)
             self.assertTrue(window.testAttribute(Qt.WA_TranslucentBackground))
             self.assertIsInstance(window.backdrop, LightBackdrop)
@@ -58,10 +58,10 @@ class QtGuiImportTests(unittest.TestCase):
 
     def test_qt_shell_exposes_independent_view_classes_and_animated_buttons(self):
         qt_app()
-        from xmum_moodle_agent.gui_qt import AnimatedButton, CoursesView, HomeView, MoodleAgentQtWindow, Sidebar
+        from xmum_moodle_downloader.gui_qt import AnimatedButton, CoursesView, HomeView, MoodleDownloaderQtWindow, Sidebar
 
         with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
+            window = MoodleDownloaderQtWindow(Path(tmp))
             stylesheet = window.styleSheet()
 
             self.assertIsInstance(window.sidebar, Sidebar)
@@ -84,7 +84,7 @@ class QtGuiImportTests(unittest.TestCase):
         qt_app()
         from PySide6.QtWidgets import QStackedLayout
 
-        from xmum_moodle_agent.gui_qt import LightBackdrop, MoodleAgentQtWindow, _mix_color
+        from xmum_moodle_downloader.gui_qt import LightBackdrop, MoodleDownloaderQtWindow, _mix_color
 
         transparent_white = _mix_color("rgba(255, 255, 255, 0)", "#eaf3ff", 0)
         self.assertEqual(transparent_white.red(), 255)
@@ -93,7 +93,7 @@ class QtGuiImportTests(unittest.TestCase):
         self.assertEqual(transparent_white.alpha(), 0)
 
         with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
+            window = MoodleDownloaderQtWindow(Path(tmp))
             stylesheet = window.styleSheet()
             container_stack = window.window_container.layout()
 
@@ -117,10 +117,10 @@ class QtGuiImportTests(unittest.TestCase):
         qt_app()
         from PySide6.QtWidgets import QMessageBox
 
-        from xmum_moodle_agent.gui_qt import LoginDialog, MoodleAgentQtWindow
+        from xmum_moodle_downloader.gui_qt import LoginDialog, MoodleDownloaderQtWindow
 
         with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
+            window = MoodleDownloaderQtWindow(Path(tmp))
             stylesheet = window.styleSheet()
 
             self.assertIn("QDialog, QMessageBox {", stylesheet)
@@ -144,7 +144,7 @@ class QtGuiImportTests(unittest.TestCase):
 
     def test_login_success_selects_current_term_courses_by_default(self):
         qt_app()
-        from xmum_moodle_agent.gui_qt import MoodleAgentQtWindow
+        from xmum_moodle_downloader.gui_qt import MoodleDownloaderQtWindow
 
         courses = [
             Course("CYS202 Principles of Operating Systems 2026/04 Venantius", "https://example.test/1"),
@@ -152,7 +152,7 @@ class QtGuiImportTests(unittest.TestCase):
             Course("CYS201 Modern Cryptography 2026/04 Iftekhar", "https://example.test/3"),
         ]
         with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
+            window = MoodleDownloaderQtWindow(Path(tmp))
             with patch.object(window, "_show_info"):
                 window._handle_login_success(courses)
 
@@ -165,7 +165,7 @@ class QtGuiImportTests(unittest.TestCase):
             window.close()
 
     def test_main_opens_qt_app_without_forcing_windows_dpi_awareness(self):
-        from xmum_moodle_agent import gui_qt
+        from xmum_moodle_downloader import gui_qt
 
         events = []
         app = Mock()
@@ -175,7 +175,7 @@ class QtGuiImportTests(unittest.TestCase):
 
         with patch.object(gui_qt, "enable_windows_dpi_awareness", side_effect=lambda: events.append("dpi")):
             with patch.object(gui_qt, "_qt_application", side_effect=lambda argv: events.append("app") or app):
-                with patch.object(gui_qt, "MoodleAgentQtWindow", side_effect=lambda root: events.append("window") or window):
+                with patch.object(gui_qt, "MoodleDownloaderQtWindow", side_effect=lambda root: events.append("window") or window):
                     result = gui_qt.main([])
 
         self.assertEqual(result, 0)
@@ -183,10 +183,10 @@ class QtGuiImportTests(unittest.TestCase):
 
     def test_empty_download_selection_shows_warning_without_starting_worker(self):
         qt_app()
-        from xmum_moodle_agent.gui_qt import MoodleAgentQtWindow
+        from xmum_moodle_downloader.gui_qt import MoodleDownloaderQtWindow
 
         with tempfile.TemporaryDirectory() as tmp:
-            window = MoodleAgentQtWindow(Path(tmp))
+            window = MoodleDownloaderQtWindow(Path(tmp))
             window.logged_in = True
             window.current_courses = [Course("CYS202 2026/04", "https://example.test/1")]
             window.selected_course_urls.clear()

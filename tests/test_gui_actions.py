@@ -2,14 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from xmum_moodle_agent.gui_actions import (
+from xmum_moodle_downloader.gui_actions import (
     CourseDownloadReport,
     course_terms_from_courses,
     download_selected_courses,
     filter_courses_by_term,
     visible_courses_after_login,
 )
-from xmum_moodle_agent.models import Course, Resource
+from xmum_moodle_downloader.models import Course, Resource
 
 
 class FakeMoodleClient:

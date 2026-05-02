@@ -1,7 +1,7 @@
 import unittest
 
-from xmum_moodle_agent.course_filter import filter_courses
-from xmum_moodle_agent.models import Course
+from xmum_moodle_downloader.course_filter import filter_courses
+from xmum_moodle_downloader.models import Course
 
 
 class CourseFilterTests(unittest.TestCase):

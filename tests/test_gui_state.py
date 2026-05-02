@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from xmum_moodle_agent.gui_state import (
+from xmum_moodle_downloader.gui_state import (
     GuiSettings,
-    agent_config_from_gui_settings,
+    downloader_config_from_gui_settings,
     load_gui_settings,
     save_gui_settings,
 )
@@ -59,7 +59,7 @@ class GuiStateTests(unittest.TestCase):
         self.assertIn("XMUM_MOODLE_USERNAME=s1234567", env_text)
         self.assertIn("XMUM_MOODLE_PASSWORD=secret-pass", env_text)
 
-    def test_agent_config_can_use_current_gui_password_without_persisting_it(self):
+    def test_downloader_config_can_use_current_gui_password_without_persisting_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             settings = GuiSettings(
@@ -69,7 +69,7 @@ class GuiStateTests(unittest.TestCase):
                 auto_login=False,
             )
 
-            config = agent_config_from_gui_settings(root, settings)
+            config = downloader_config_from_gui_settings(root, settings)
 
         self.assertEqual(config.username, "s1234567")
         self.assertEqual(config.password, "window-only-pass")

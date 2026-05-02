@@ -4,7 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
-from .agent import run_agent
+from .app import run_downloader
 from .config import ConfigError, load_config
 from .course_filter import filter_courses
 from .moodle import MoodleAutomationError, MoodleClient
@@ -12,7 +12,7 @@ from .scheduler import install_windows_task
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(prog="xmum-moodle-agent")
+    parser = argparse.ArgumentParser(prog="xmum-moodle-downloader")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("init", help="Create local folders and .env example.")
     subparsers.add_parser("run", help="Log in and download Moodle materials.")
@@ -29,7 +29,7 @@ def main(argv=None) -> int:
             return _init(root)
         if args.command == "run":
             config = load_config(root=root)
-            stats = asyncio.run(run_agent(config))
+            stats = asyncio.run(run_downloader(config))
             print(
                 "Done: "
                 f"{stats['courses']} courses, {stats['resources']} resources, "

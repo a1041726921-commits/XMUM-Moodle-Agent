@@ -1,4 +1,4 @@
-from xmum_moodle_agent.gui_qt import main
+from xmum_moodle_downloader.gui_qt import main
 
 
 if __name__ == "__main__":

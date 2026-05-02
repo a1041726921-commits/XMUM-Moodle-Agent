@@ -4,7 +4,7 @@ from pathlib import Path
 
 class GuiAssetTests(unittest.TestCase):
     def test_apple_theme_and_assets_are_available(self):
-        from xmum_moodle_agent.gui_assets import (
+        from xmum_moodle_downloader.gui_assets import (
             APPLE_THEME,
             app_icon_path,
             course_icon_path,
@@ -24,13 +24,9 @@ class GuiAssetTests(unittest.TestCase):
         self.assertIsNone(enable_windows_dpi_awareness())
 
     def test_pyinstaller_specs_include_app_icon(self):
-        expected = "icon='src\\\\xmum_moodle_agent\\\\assets\\\\xmum.ico'"
-        for spec_name in (
-            "XMUM-Moodle-Agent-Standalone.spec",
-            "XMUM-Moodle-Agent-Standalone-Fixed.spec",
-        ):
-            spec_text = Path(spec_name).read_text(encoding="utf-8")
-            self.assertIn(expected, spec_text)
+        expected = "icon='src\\\\xmum_moodle_downloader\\\\assets\\\\xmum.ico'"
+        spec_text = Path("XUMU-moodle-downloader.spec").read_text(encoding="utf-8")
+        self.assertIn(expected, spec_text)
 
 
 if __name__ == "__main__":

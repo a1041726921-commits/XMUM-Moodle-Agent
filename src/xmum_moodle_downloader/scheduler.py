@@ -4,18 +4,18 @@ from pathlib import Path
 
 
 def write_runner_script(root: Path) -> Path:
-    script = root / "run_xmum_moodle_agent.ps1"
+    script = root / "run_xmum_moodle_downloader.ps1"
     python_exe = Path(sys.executable)
     content = f"""$ErrorActionPreference = "Stop"
 Set-Location -LiteralPath "{root}"
 $env:PYTHONPATH = "{root / 'src'}"
-& "{python_exe}" -m xmum_moodle_agent.cli run
+& "{python_exe}" -m xmum_moodle_downloader.cli run
 """
     script.write_text(content, encoding="utf-8")
     return script
 
 
-def install_windows_task(root: Path, task_name: str = "XMUM Moodle Agent", time: str = "08:00") -> str:
+def install_windows_task(root: Path, task_name: str = "XMUM Moodle Downloader", time: str = "08:00") -> str:
     script = write_runner_script(root)
     command = [
         "schtasks",

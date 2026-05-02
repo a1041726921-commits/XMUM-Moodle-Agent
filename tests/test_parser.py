@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from xmum_moodle_agent.parser import parse_material
+from xmum_moodle_downloader.parser import parse_material
 
 
 class ParserTests(unittest.TestCase):

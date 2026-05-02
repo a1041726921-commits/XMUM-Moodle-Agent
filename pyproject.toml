@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "xmum-moodle-agent"
+name = "xmum-moodle-downloader"
 version = "0.1.0"
 description = "Download XMUM Moodle materials and organize course files."
 requires-python = ">=3.9"
@@ -20,8 +20,8 @@ dev = [
 ]
 
 [project.scripts]
-xmum-moodle-agent = "xmum_moodle_agent.cli:main"
-xmum-moodle-agent-gui = "xmum_moodle_agent.gui:main"
+xmum-moodle-downloader = "xmum_moodle_downloader.cli:main"
+xmum-moodle-downloader-gui = "xmum_moodle_downloader.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

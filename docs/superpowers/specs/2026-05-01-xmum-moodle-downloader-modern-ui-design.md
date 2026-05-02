@@ -1,4 +1,4 @@
-# XMUM Moodle Agent Modern UI Design
+# XMUM Moodle Downloader Modern UI Design
 
 ## Goal
 

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from xmum_moodle_agent.config import ConfigError, load_config
+from xmum_moodle_downloader.config import ConfigError, load_config
 
 
 class ConfigTests(unittest.TestCase):

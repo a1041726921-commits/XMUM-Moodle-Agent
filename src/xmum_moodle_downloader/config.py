@@ -5,11 +5,11 @@ from typing import Dict, Optional
 
 
 class ConfigError(RuntimeError):
-    """Raised when required agent configuration is missing or invalid."""
+    """Raised when required downloader configuration is missing or invalid."""
 
 
 @dataclass(frozen=True)
-class AgentConfig:
+class DownloaderConfig:
     root: Path
     username: str
     password: str
@@ -59,7 +59,7 @@ def _as_bool(value: Optional[str], default: bool = True) -> bool:
     return value.strip().lower() not in {"0", "false", "no", "off"}
 
 
-def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) -> AgentConfig:
+def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) -> DownloaderConfig:
     root = (root or Path.cwd()).resolve()
     env_file = env_file or (root / ".env")
     env_values = _read_env_file(env_file)
@@ -81,7 +81,7 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
             + ". Set them in .env or Windows environment variables."
         )
 
-    data_dir_value = _get_value("XMUM_AGENT_DATA_DIR", env_values) or "data"
+    data_dir_value = _get_value("XMUM_DOWNLOADER_DATA_DIR", env_values) or "data"
     data_dir = Path(data_dir_value)
     if not data_dir.is_absolute():
         data_dir = root / data_dir
@@ -91,7 +91,7 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
         or "https://l.xmu.edu.my/my/"
     )
 
-    return AgentConfig(
+    return DownloaderConfig(
         root=root,
         username=username or "",
         password=password or "",
@@ -99,7 +99,7 @@ def load_config(root: Optional[Path] = None, env_file: Optional[Path] = None) ->
         data_dir=data_dir,
         courses_dir=data_dir / "courses",
         index_path=data_dir / "index.json",
-        headless=_as_bool(_get_value("XMUM_AGENT_HEADLESS", env_values), default=True),
+        headless=_as_bool(_get_value("XMUM_DOWNLOADER_HEADLESS", env_values), default=True),
         course_include_regex=_get_optional_value(
             "XMUM_COURSE_INCLUDE_REGEX",
             env_values,
