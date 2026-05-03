@@ -35,12 +35,21 @@ def configure_playwright_browser_path(frozen: bool = False) -> None:
     if not frozen:
         return
 
+    portable_browser_cache = _portable_playwright_browser_cache()
+    if portable_browser_cache.exists():
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(portable_browser_cache)
+        return
+
     local_app_data = os.environ.get("LOCALAPPDATA")
     if local_app_data:
         browser_cache = Path(local_app_data) / "ms-playwright"
     else:
         browser_cache = Path.home() / "AppData" / "Local" / "ms-playwright"
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_cache)
+
+
+def _portable_playwright_browser_cache() -> Path:
+    return Path(sys.executable).parent / "ms-playwright"
 
 
 def _is_missing_bundled_playwright_path(path_text: str, frozen: bool) -> bool:
@@ -55,6 +64,33 @@ def _is_missing_bundled_playwright_path(path_text: str, frozen: bool) -> bool:
         and "driver" in lower_parts
         and "package" in lower_parts
     )
+
+
+def _chromium_launch_attempts(frozen: bool, headless: bool, preconfigured_browser_path: str = "") -> List[Dict[str, object]]:
+    default_attempt = {"headless": headless}
+    has_explicit_browser_path = bool(
+        preconfigured_browser_path
+        and not _is_missing_bundled_playwright_path(preconfigured_browser_path, frozen)
+    )
+    if frozen and not has_explicit_browser_path and not _portable_playwright_browser_cache().exists():
+        return [
+            {**default_attempt, "channel": "msedge"},
+            {**default_attempt, "channel": "chrome"},
+            default_attempt,
+        ]
+    return [default_attempt]
+
+
+async def _launch_chromium(chromium, attempts: Sequence[Dict[str, object]]):
+    last_error = None
+    for kwargs in attempts:
+        try:
+            return await chromium.launch(**kwargs)
+        except Exception as exc:
+            last_error = exc
+    if last_error is not None:
+        raise last_error
+    raise MoodleAutomationError("No browser launch attempts were configured.")
 
 
 def discover_courses_from_links(links: Sequence[Link]) -> List[Course]:
@@ -327,7 +363,9 @@ class MoodleClient:
         self.config = config
 
     async def __aenter__(self):
-        configure_playwright_browser_path(frozen=bool(getattr(sys, "frozen", False)))
+        frozen = bool(getattr(sys, "frozen", False))
+        preconfigured_browser_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
+        configure_playwright_browser_path(frozen=frozen)
         try:
             from playwright.async_api import async_playwright
         except Exception as exc:
@@ -336,7 +374,10 @@ class MoodleClient:
             ) from exc
 
         self._playwright = await async_playwright().start()
-        self.browser = await self._playwright.chromium.launch(headless=self.config.headless)
+        self.browser = await _launch_chromium(
+            self._playwright.chromium,
+            _chromium_launch_attempts(frozen, self.config.headless, preconfigured_browser_path),
+        )
         self.context = await self.browser.new_context(accept_downloads=True)
         self.page = await self.context.new_page()
         return self
