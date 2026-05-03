@@ -2,6 +2,10 @@
 
 XMUM Moodle Downloader 是一个本地运行的 Python 工具，用于登录 XMUM Moodle，自动发现课程，下载课件资料，并按学期和课程整理到本地文件夹。
 
+## 现成版本
+
+现成的 Windows 版本会发布在 [GitHub Releases](https://github.com/a1041726921-commits/XMUM-Moodle-Agent/releases) 页面，可以直接下载使用。
+
 ## 功能
 
 - 登录 XMUM Moodle 并检查账号是否可用
