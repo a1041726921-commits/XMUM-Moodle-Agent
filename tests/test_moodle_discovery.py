@@ -14,17 +14,6 @@ from xmum_moodle_downloader.moodle import (
 )
 
 
-def _async_return(value):
-    async def _inner(*args, **kwargs):
-        return value
-
-    return _inner
-
-
-async def _async_noop(*args, **kwargs):
-    pass
-
-
 class MoodleDiscoveryTests(unittest.TestCase):
     def test_discovers_courses_from_moodle_course_links(self):
         links = [
@@ -165,10 +154,17 @@ class MoodleDiscoveryTests(unittest.TestCase):
 
 
 class AsyncMoodleDiscoveryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_frozen_client_without_bundled_browser_prefers_system_edge(self):
+    async def test_frozen_client_uses_playwright_browser_cache_without_system_browser_channels(self):
         class FakeBrowser:
             async def new_context(self, accept_downloads):
-                return type("Context", (), {"new_page": _async_return("page"), "close": _async_noop})()
+                return FakeContext()
+
+            async def close(self):
+                pass
+
+        class FakeContext:
+            async def new_page(self):
+                return "page"
 
             async def close(self):
                 pass
@@ -194,68 +190,19 @@ class AsyncMoodleDiscoveryTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             chromium = FakeChromium()
             manager = FakeManager(chromium)
-            release_dir = Path(tmp) / "release"
-            release_dir.mkdir()
+            local_app_data = Path(tmp) / "LocalAppData"
+            browser_cache = local_app_data / "ms-playwright"
+            browser_cache.mkdir(parents=True)
 
             with patch("playwright.async_api.async_playwright", return_value=manager):
-                with patch.dict(os.environ, {"LOCALAPPDATA": str(Path(tmp) / "LocalAppData")}, clear=True):
+                with patch.dict(os.environ, {"LOCALAPPDATA": str(local_app_data)}, clear=True):
                     with patch.object(sys, "frozen", True, create=True):
-                        with patch.object(sys, "executable", str(release_dir / "XUMU-moodle-downloader.exe")):
-                            client = MoodleClient(config=type("Config", (), {"headless": True})())
-                            await client.__aenter__()
-                            await client.__aexit__(None, None, None)
+                        client = MoodleClient(config=type("Config", (), {"headless": True})())
+                        await client.__aenter__()
+                        await client.__aexit__(None, None, None)
 
-            self.assertEqual(chromium.launch_kwargs[0], {"headless": True, "channel": "msedge"})
-
-    async def test_frozen_client_without_bundled_browser_falls_back_after_missing_edge(self):
-        class FakeBrowser:
-            async def new_context(self, accept_downloads):
-                return type("Context", (), {"new_page": _async_return("page"), "close": _async_noop})()
-
-            async def close(self):
-                pass
-
-        class FakeChromium:
-            def __init__(self):
-                self.launch_kwargs = []
-
-            async def launch(self, **kwargs):
-                self.launch_kwargs.append(kwargs)
-                if kwargs.get("channel") == "msedge":
-                    raise RuntimeError("edge missing")
-                return FakeBrowser()
-
-        class FakeManager:
-            def __init__(self, chromium):
-                self.chromium = chromium
-
-            async def start(self):
-                return self
-
-            async def stop(self):
-                pass
-
-        with tempfile.TemporaryDirectory() as tmp:
-            chromium = FakeChromium()
-            manager = FakeManager(chromium)
-            release_dir = Path(tmp) / "release"
-            release_dir.mkdir()
-
-            with patch("playwright.async_api.async_playwright", return_value=manager):
-                with patch.dict(os.environ, {"LOCALAPPDATA": str(Path(tmp) / "LocalAppData")}, clear=True):
-                    with patch.object(sys, "frozen", True, create=True):
-                        with patch.object(sys, "executable", str(release_dir / "XUMU-moodle-downloader.exe")):
-                            client = MoodleClient(config=type("Config", (), {"headless": False})())
-                            await client.__aenter__()
-                            await client.__aexit__(None, None, None)
-
-            self.assertEqual(
-                chromium.launch_kwargs,
-                [
-                    {"headless": False, "channel": "msedge"},
-                    {"headless": False, "channel": "chrome"},
-                ],
-            )
+                    self.assertEqual(os.environ["PLAYWRIGHT_BROWSERS_PATH"], str(browser_cache))
+            self.assertEqual(chromium.launch_kwargs, [{"headless": True}])
 
     async def test_discover_courses_waits_for_async_course_links(self):
         class FakePage:
